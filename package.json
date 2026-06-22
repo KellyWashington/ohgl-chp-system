@@ -1,0 +1,10 @@
+{
+  "name": "odsl-chp-system",
+  "version": "3.0.0-production-hardening",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:js": "node scripts/check-inline-js.mjs",
+    "validate:legacy-export": "node scripts/validate-local-export.mjs"
+  }
+}
