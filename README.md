@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ODSL Siaya - CHP Engagement & Referral Tracking System
 
 Oasis Doctors Siaya Limited | ODSL-SIAYA-CHP-2026
@@ -32,8 +31,3 @@ window.OHGL_SUPABASE_ANON_KEY = 'public-anon-key';
 ```
 
 Host the frontend on a HTTPS cloud static host and apply `supabase/schema.sql` to the Supabase project.
-
-=======
-# ohgl-chp-system
-Make dashboards from hospital data
->>>>>>> cbbdbd7ce98a7050e0361feecb972880c6a4ed52

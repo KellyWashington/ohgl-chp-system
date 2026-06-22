@@ -1,0 +1,20 @@
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Inter', sans-serif;
+  background:#FAF9FC;
+  color:#1E1B2A;
+  min-height:100vh;
+  font-size:13px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+:root{
+  --P:#6B3FA0;--PD:#4A2875;--PM:#7E57C2;--PL:#EDE7F6;--PXL:#F8F5FF;
+  --T:#00A896;--TD:#007A6E;--TL:#E0F5F3;
+  --W:#fff;--BG:#FAF9FC;--BD:#E6E1F2;--BDM:#D3C7EE;
+  --TX:#1E1B2A;--MU:#726E8D;--DG:#C62828;--AM:#D97706;--GR:#059669;
+}
+:focus-visible{
+  outline:2px solid var(--P);
+  outline-offset:2px;
+}

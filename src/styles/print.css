@@ -1,0 +1,26 @@
+/*  PRINT  */
+@media print{
+  .fac-bar,.no-print,.nav{display:none!important}
+  .print-only{display:block!important}
+  .hdr{border-bottom:2px solid var(--T)}
+  body{background:#fff;font-size:11px}
+  .card,.dir-card,.slip{break-inside:avoid;box-shadow:none;border:1px solid #ddd}
+  .kpi-grid{grid-template-columns:repeat(4,1fr)}
+  .cat-grid{grid-template-columns:1fr 1fr}
+  .main{padding:0;max-width:100%}
+  .dir-grid{grid-template-columns:1fr 1fr}
+  .reg-tbl th:last-child,.reg-tbl td:last-child{display:none}
+  input,select,textarea{color:#000}
+}
+@media(max-width:900px){
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .dir-grid{grid-template-columns:1fr}
+  .group-grid{grid-template-columns:1fr 1fr}
+  .fgrid{grid-template-columns:1fr}
+  .meeting-bar{grid-template-columns:auto 1fr}
+}
+@media(max-width:600px){
+  .kpi-grid,.group-grid{grid-template-columns:1fr}
+  .cat-grid{grid-template-columns:1fr}
+  .main{padding:12px}
+}
