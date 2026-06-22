@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>OHGL - CHP Referral System</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./src/styles/main.css">
 <script src="./config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14,53 +14,51 @@
 <body>
 
 <div class="auth-screen" id="auth-screen">
-  <div class="auth-split-left">
-    <div class="auth-brand-info">
-      <div class="auth-brand-logo"><img class="brand-logo-img" src="data:image/png;base64,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先行" alt="Oasis Health"></div>
-      <h1 class="auth-brand-title">Oasis Doctors Siaya</h1>
-      <p class="auth-brand-tagline">CHP Engagement &amp; Community Referral Tracking System</p>
-      <div class="auth-features">
-        <div class="auth-feature-item"><i class="ti ti-activity-heartbeat" aria-hidden="true"></i> <span>Secure PHI field-level encryption (AES-256)</span></div>
-        <div class="auth-feature-item"><i class="ti ti-shield-check" aria-hidden="true"></i> <span>Role-based access &amp; PostgreSQL RLS policies</span></div>
-        <div class="auth-feature-item"><i class="ti ti-chart-bar" aria-hidden="true"></i> <span>Real-time community health promoter dashboards</span></div>
+  <div class="login-outer">
+    <div class="login-card">
+      <div class="login-top">
+        <img class="brand-mark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAABQCAMAAACUNLhJAAABYlBMVEX///8TtqH+/f78+/z8/v77+fzp5+rs6u7o5uv28/f8/Pz18vf5/fzs6e76+fpsLIwQuKBqLI/y+vkWtaJkL4Ps5u9pLotsKY/y7fW4psLc1ODl3ulnPXsxsJ9wK45mMIViMYBqP4TazuDNvtPH5+Pe9PHDscuFaJeznb6tlLlhMntnK4zSxdiLcp2NeJhvK5p5xrq3qMBkNXltSn3RydOef66NfZKolrCBW5JwRoSGW5q/qcuhkaXTw9xSuquAbIqg19DQ7OhlPXObgaeQaaJzUX25ncqah6WHXpl4TY56UIjb19x0P4iEYZOcd6tjTXaDT5q6lcmAurE8p5Wz3deYhpzo3O10SX28scBxV31+yLx5Zo29t71zYHlgTWiro7FZNnV6aX92OpCKb5NdQW5XurK61tORt69Xp5o+noxNpZua1ciqzMiWyLys4dVEsppKm4yEsKmF2MzK9O6s8eRkx7P7HgPKAAAVkUlEQVR4nO1cjV/ayNaOIVFjEDSG8G0CISARLV8VsIogWr+g3SvYBWyv3bX2xSq6t93+/++ZmQTCh667tbd7tz2/qiGZTGaenPPMc05CKeqHPaLRYN96DP8LxvL+sOpd8ua8UTXs97Dfejx/X+NcaiV2WChsb2fepvVq6LBWafr5H042arQn+rSQfvs2XVjyqpvxw5Be3akdbmdWoi7btx7b38xojzevK+ntJW9cRbFnc6m7uy4u/HxdUQ7irh/eZTE+mg/poadhHwuwqQmW5yg6e+bw7cXXFVlSDpdc33qEfxuzhSux/YNAy0chF4sHDisbRxQ146Ac0+GlQ3FZkvWayn/rUf49bMqbKWy6XkV9KP4SK1VROfT3aIoNH0jzy5JSqPh/xCJF+5+mlUKK5jkEhqemK9UV1UGOOXw+ln0hL7rdy6KeT/ggen9MlMUXnlcrexBottx24OnerOFDnPoyE908kJzzTkmSlcPody67aH9NdrqdP/3rQM8AZc2urapsz4GmzjOZQggdl6R5iMXqs+8RLbvAGFv+miItLrqdv8r6CngWzbEWZqKbqutZSJ53u+ed8+4nT5xV73cYieXjCNlwxRTJubgIYaYEvKME7rDRUQwW+Nay+4lbKkS/O5ZnuvWkgDb4CvgVICEremCJG23IJZZ2FIAJsJIlAMspFsLfG1pCMRhEruXwpgErpySmC/HU7Gg7Wj0QZQm5HpAWBCKgKta+NwWhFSeCJfibKMhuN1KcS80xbkVRvhfy/PKy0+l2A6255xed4GBK5TtTp5HgxEKboWZrImBVrVU845uxK4oT1kDsWotPEMuDyekH0NY/qRzWCC4sJBnKV5CezOsx11g9wDko9gUEofzTv36SAS5gLATWoqTkffd2zh0lmqlcVPU9em3HMXnk8/uPJo0ocEz7fT6/b3pq5pGvM2glA6yfFUncTo2d0+xJyvNqP/1zPB9nN0MyoSwUjfOyHr9Hbc02NzZSzWZq73R3xfvI9OaYbLYKmbUjAywbfMxkWr6xDPJ4hsCCMPSdPw/t7o0hdrDsbmD/oLCS4NQzBxvX119Upfkn7sV5MPnQf1fHjsTqVpa30aDXfJVCOh/9I++6J17Hlbb9h4q+1L9VszVdj31tndwmYE35PKc+x/gmUzDXQMVDU7bXWTq1G+XjihMtBorkdlaX7pgim9pd6dVyOC/0ELfS4czU4Hm2qaNs1ufCI5jheJ7neoOheT8c8nNDF/KsS6KFMvmaojwlHx3ofB7/mrJMibO6nYPvX4OenvXwxDhyFk3NkAZGVKMReXiKaS9gsODiG3cqclSLx+uew0E5milbuCo5pYMXsZC0LOfHL4i0msmELVh403raGrLTvwy4pCe1tXay2mqd4Vk1T2u13JR58ebaL2trb/59MnQr+f1lK1hcTBENsLjsaq0WW93a2nrzJtsfwoZ1glMbrdpplsDn+KXVar3ZOs+v58/hlDdv1mCakxut/KkpDBxHq7X8KcUkAaykHa5wdnZ/+uLINqfRYGgHnahKUnWT5Sq6LKfVca5F+zPpijUouBVFKST6I89tWw/7Wuc+lmb9qye4M09G762z/tWWytK22Y1fhviI35eGwDI9i2IruvIi7AsnUhawfLsZ6/2JvtUPDc+ffpNS1UR2qSrrz7LZRPPkDbov/oAS6A2Yhh4LBKzPCKzXZ3dEIb68qsZ/DuAylo3nNxUAK8pSakYHrTUOLMdeOpSw7qATBVF50cPHVdML/aFz55kEvg/TTXK1vFhNmPPe9uKzpoaH58kPgrWiyCZYdEURn9OI6rJHvQHEA+m4ZaiqLu4bQXF0hCkxHJJhTECPHHYbT0gO9WMjrisHBKwiyndoIAXGPg4pejb1NFSVsWL18eGV2LoM+eNhJcwm4lXxcFwczu7q+cHqM1dT5IMePs2QpKRMT6az2z+/wlszUz2wjHG6tgObeMM2PeT4nregsDHiWKFnBIsA4egi7Moqct7BmQpFMsIw2vpBYIGPGPuwJSdW+MMqBI1rAQlYujUOL20uDukIZtKyHdtZ1RZZ+ff50O3AQpnlwz/DoGbT6VnkxFDZLslNXjW1+df8nsWai先行" alt="Oasis Health">
+        <h1>Oasis Doctors Siaya</h1>
+        <p>Together for better</p>
+      </div>
+      <div class="login-body">
+        <div id="auth-alert"></div>
+        <form id="auth-form" onsubmit="login(event)">
+          <div class="fg">
+            <label class="fl" for="auth-email">Email Address</label>
+            <div class="input-with-icon">
+              <i class="ti ti-mail" aria-hidden="true"></i>
+              <input class="fi" id="auth-email" type="email" autocomplete="username" placeholder="name@oasishealthcaregroup.com" required autofocus>
+            </div>
+          </div>
+          
+          <div class="fg" style="margin-top:16px">
+            <label class="fl" for="auth-password">Password</label>
+            <div class="input-with-icon">
+              <i class="ti ti-lock" aria-hidden="true"></i>
+              <input class="fi" id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+              <button class="password-toggle-btn" type="button" onclick="togglePasswordVisibility()" aria-label="Toggle Password Visibility">
+                <i class="ti ti-eye" id="password-toggle-icon" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="auth-actions" style="margin-top:24px">
+            <button class="btn btn-p btn-full" type="submit" id="auth-submit-btn">
+              <span id="auth-btn-text"><i class="ti ti-login" aria-hidden="true"></i> Sign in</span>
+              <span id="auth-btn-spinner" class="spinner" style="display:none"></span>
+            </button>
+            <button class="btn btn-s btn-full" type="button" onclick="resetPassword()" id="auth-reset-btn">
+              <i class="ti ti-key" aria-hidden="true"></i> Reset password
+            </button>
+          </div>
+        </form>
+        <div class="login-creds">
+          <strong>Authorized Access Only</strong><br>
+          Access to this healthcare system is monitored and subject to staff data protection and acceptable use obligations.
+        </div>
       </div>
     </div>
-  </div>
-  <div class="auth-split-right">
-    <form class="auth-card glass" id="auth-form" onsubmit="login(event)" aria-labelledby="auth-form-title">
-      <h2 class="auth-title" id="auth-form-title">Sign in to your account</h2>
-      <p class="auth-sub">Enter your credentials to access the secure healthcare portal.</p>
-      <div id="auth-alert"></div>
-      
-      <div class="fg">
-        <label class="fl" for="auth-email">Email Address</label>
-        <div class="input-with-icon">
-          <i class="ti ti-mail" aria-hidden="true"></i>
-          <input class="fi" id="auth-email" type="email" autocomplete="username" placeholder="name@oasishealthcaregroup.com" required>
-        </div>
-      </div>
-      
-      <div class="fg" style="margin-top:16px">
-        <label class="fl" for="auth-password">Password</label>
-        <div class="input-with-icon">
-          <i class="ti ti-lock" aria-hidden="true"></i>
-          <input class="fi" id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" required>
-          <button class="password-toggle-btn" type="button" onclick="togglePasswordVisibility()" aria-label="Toggle Password Visibility">
-            <i class="ti ti-eye" id="password-toggle-icon" aria-hidden="true"></i>
-          </button>
-        </div>
-      </div>
-      
-      <div class="auth-actions" style="margin-top:24px">
-        <button class="btn btn-p btn-full" type="submit" id="auth-submit-btn">
-          <span id="auth-btn-text"><i class="ti ti-login" aria-hidden="true"></i> Sign in</span>
-          <span id="auth-btn-spinner" class="spinner" style="display:none"></span>
-        </button>
-        <button class="btn btn-s btn-full" type="button" onclick="resetPassword()" id="auth-reset-btn">
-          <i class="ti ti-key" aria-hidden="true"></i> Reset password
-        </button>
-      </div>
-    </form>
   </div>
 </div>
 
