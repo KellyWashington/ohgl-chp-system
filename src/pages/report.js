@@ -104,33 +104,33 @@ export function renderReport() {
     <div class="signoff-box">
       <div class="signoff-title">Period Summary &amp; Sign-Off</div>
       <div class="signoff-grid">
-        <div class="sf"><div class="sf-lbl">Total Active CHPs:</div><div class="sf-line">${(f.chps || []).filter(c => c.active == '1' || c.active === true).length}</div></div>
-        <div class="sf"><div class="sf-lbl">Data Compiled By:</div><div class="sf-line">${f.compiler || ''}</div></div>
-        <div class="sf"><div class="sf-lbl">Total Referrals This Period:</div><div class="sf-line">${yRefs.length}</div></div>
-        <div class="sf"><div class="sf-lbl">Designation:</div><div class="sf-line"></div></div>
-        <div class="sf"><div class="sf-lbl">OPD Attendance Rate:</div><div class="sf-line">${yRefs.length ? Math.round((totAtt / yRefs.length) * 100) + '%' : '-'}</div></div>
-        <div class="sf"><div class="sf-lbl">Signature:</div><div class="sf-line"></div></div>
-        <div class="sf"><div class="sf-lbl">SHA Registration Rate:</div><div class="sf-line">${yRefs.length ? Math.round((totSha / yRefs.length) * 100) + '%' : '-'}</div></div>
-        <div class="sf"><div class="sf-lbl">Date of Submission:</div><div class="sf-line"></div></div>
-        <div class="sf"><div class="sf-lbl">Emergency Cases Escalated:</div><div class="sf-line">${totEmg}</div></div>
-        <div class="sf"><div class="sf-lbl">Reviewed By (COIC):</div><div class="sf-line">${f.coic || ''}</div></div>
-        <div class="sf"><div class="sf-lbl">Tokens Due for Payment:</div><div class="sf-line">KES ${totTok.toLocaleString()}</div></div>
-        <div class="sf"><div class="sf-lbl">Signature:</div><div class="sf-line"></div></div>
+        <div class="sf"><div class="sf-lbl">Total Active CHPs:</div><input type="text" class="sf-line" value="${(f.chps || []).filter(c => c.active == '1' || c.active === true).length}"></div>
+        <div class="sf"><div class="sf-lbl">Data Compiled By:</div><input type="text" class="sf-line" value="${f.compiler || ''}" placeholder="Enter compiler name..."></div>
+        <div class="sf"><div class="sf-lbl">Total Referrals This Period:</div><input type="text" class="sf-line" value="${yRefs.length}"></div>
+        <div class="sf"><div class="sf-lbl">Designation:</div><input type="text" class="sf-line" placeholder="Enter designation..."></div>
+        <div class="sf"><div class="sf-lbl">OPD Attendance Rate:</div><input type="text" class="sf-line" value="${yRefs.length ? Math.round((totAtt / yRefs.length) * 100) + '%' : '-'}"></div>
+        <div class="sf"><div class="sf-lbl">Signature:</div><input type="text" class="sf-line" placeholder="Sign here..."></div>
+        <div class="sf"><div class="sf-lbl">SHA Registration Rate:</div><input type="text" class="sf-line" value="${yRefs.length ? Math.round((totSha / yRefs.length) * 100) + '%' : '-'}"></div>
+        <div class="sf"><div class="sf-lbl">Date of Submission:</div><input type="text" class="sf-line" placeholder="Enter date..."></div>
+        <div class="sf"><div class="sf-lbl">Emergency Cases Escalated:</div><input type="text" class="sf-line" value="${totEmg}"></div>
+        <div class="sf"><div class="sf-lbl">Reviewed By (COIC):</div><input type="text" class="sf-line" value="${f.coic || ''}" placeholder="Enter reviewer name..."></div>
+        <div class="sf"><div class="sf-lbl">Tokens Due for Payment:</div><input type="text" class="sf-line" value="KES ${totTok.toLocaleString()}"></div>
+        <div class="sf"><div class="sf-lbl">Signature:</div><input type="text" class="sf-line" placeholder="Sign here..."></div>
       </div>
     </div>
     <div style="font-size:12px;font-weight:600;color:var(--PD);margin-bottom:10px">Key Observations &amp; Action Items</div>
     <div class="card" style="padding:14px;box-shadow:none;border:1px solid var(--BD)">
       <div class="obs-list">
-        ${Array.from({ length: 9 }, (_, i) => `<div class="obs-item"><div class="obs-num">${i + 1}</div><div class="obs-line"></div></div>`).join('')}
+        ${Array.from({ length: 9 }, (_, i) => `<div class="obs-item"><div class="obs-num">${i + 1}</div><input type="text" class="obs-line" placeholder="Enter observation or action item..."></div>`).join('')}
       </div>
     </div>
     <div class="meeting-bar" style="margin-top:14px">
       <div class="meeting-bar-lbl">Next CHP Coordination Meeting:</div>
-      <div><div style="font-size:10px;color:var(--MU)">Date:</div><div class="meeting-bar-val"></div></div>
+      <div><div style="font-size:10px;color:var(--MU)">Date:</div><input type="text" class="meeting-bar-val" placeholder="e.g. July 15, 2026"></div>
       <div class="meeting-bar-lbl">Venue:</div>
-      <div><div class="meeting-bar-val"></div></div>
+      <div><input type="text" class="meeting-bar-val" placeholder="e.g. Siaya Seminar Room"></div>
       <div class="meeting-bar-lbl">Chairperson:</div>
-      <div><div class="meeting-bar-val"></div></div>
+      <div><input type="text" class="meeting-bar-val" placeholder="e.g. Dr. A. Ochieng"></div>
     </div>
     <div style="margin-top:14px;padding:10px 14px;background:var(--PXL);border-radius:8px;font-size:10px;color:var(--MU);text-align:center;border:1px solid var(--BD)">
       OHGL-CHP-DASH-${y} &nbsp;|&nbsp; CONFIDENTIAL - OHGL Internal Document &nbsp;|&nbsp; ${f.location} - ${f.name} &nbsp;|&nbsp; Page 3
