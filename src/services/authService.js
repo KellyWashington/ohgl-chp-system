@@ -1,7 +1,7 @@
 import { sb, requireSupabase } from './supabaseClient.js';
 import { fetchUserProfile, writeAuditLog } from './dataService.js';
 import { sanitizeText } from '../utils/sanitize.js';
-import { hasPerm, getAllowedPages, getDefaultPage, getRoleLabel } from './rbac.js';
+import { hasPerm, getAllowedPages, getDefaultPage, getRoleLabel, renderAccessDenied } from './rbac.js';
 import { currentUser, currentProfile, setCurrentUser, setCurrentProfile, DB, setDB } from './state.js';
 
 // We import UI orchestrators from main.js (circular imports are resolved post-load in ESM)
@@ -12,6 +12,16 @@ export { hasPerm } from "./rbac.js";
 function setNavVisibility(pageId, visible) {
   const el = document.getElementById(`nav-${pageId}`);
   if (el) el.style.display = visible ? "block" : "none";
+}
+
+function showLockedAccess(message) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
+  const page = document.getElementById('page-dashboard');
+  const nav = document.getElementById('nav-dashboard');
+  if (page) page.classList.add('active');
+  if (nav) nav.classList.add('active');
+  renderAccessDenied('page-dashboard', message);
 }
 
 export function applyPermissionsUI() {
@@ -49,25 +59,36 @@ export async function bootstrapSession(session) {
   setCurrentUser(session.user);
   const { data: profile, error: profileErr } = await fetchUserProfile(session.user.id);
   if (profileErr) throw profileErr;
-  if (!profile || !profile.active) {
-    await sb.auth.signOut();
-    setCurrentUser(null);
-    setCurrentProfile(null);
-    showAuth(false);
-    throw new Error('Your account is inactive or missing a profile.');
-  }
-  setCurrentProfile(profile);
-  document.getElementById('current-user').textContent = `${profile.full_name || session.user.email} - ${getRoleLabel(profile.role)}`;
-  applyPermissionsUI();
+
+  const displayProfile = profile || {
+    id: session.user.id,
+    full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email,
+    email: session.user.email,
+    role: null,
+    active: false,
+  };
+
+  setCurrentProfile(displayProfile);
   showAuth(true);
+  document.getElementById('current-user').textContent = `${displayProfile.full_name || session.user.email} - ${getRoleLabel(displayProfile.role)}`;
+  applyPermissionsUI();
+
+  if (!profile) {
+    showLockedAccess('Your account is signed in but has not been provisioned with an application role yet. Contact a Super Admin to assign access.');
+    return;
+  }
+
+  if (!profile.active) {
+    showLockedAccess('Your account is disabled. Contact a Super Admin to restore access.');
+    return;
+  }
+
   const defaultPage = getDefaultPage(profile);
   if (!defaultPage) {
-    await sb.auth.signOut();
-    setCurrentUser(null);
-    setCurrentProfile(null);
-    showAuth(false);
-    throw new Error('Your role does not have access to any application modules.');
+    showLockedAccess('Your role does not have access to any application modules.');
+    return;
   }
+
   await refreshDB();
 }
 
@@ -90,7 +111,11 @@ export async function login(e) {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
     await bootstrapSession(data.session);
-    await audit('login', 'auth.users', data.session.user.id, { email });
+    try {
+      await audit('login', 'auth.users', data.session.user.id, { email });
+    } catch (auditErr) {
+      console.warn('Login audit failed', auditErr);
+    }
   } catch (err) {
     authAlert(err.message || 'Login failed');
     if (btn && btnText && spinner) {

@@ -29,6 +29,8 @@ drop function if exists same_facility(uuid) cascade;
 drop function if exists is_super_admin() cascade;
 drop function if exists current_user_facility() cascade;
 drop function if exists current_user_role() cascade;
+drop function if exists handle_new_auth_user() cascade;
+drop trigger if exists on_auth_user_created on auth.users;
 
 drop type if exists dsr_status cascade;
 drop type if exists dsr_type cascade;

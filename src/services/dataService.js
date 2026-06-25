@@ -9,7 +9,7 @@ export function fetchCoreData() {
 }
 
 export function fetchUserProfile(userId) {
-  return sb.from('users').select('*').eq('id', userId).single();
+  return sb.from('users').select('*').eq('id', userId).maybeSingle();
 }
 
 export function fetchUsers() {
