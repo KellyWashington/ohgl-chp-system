@@ -89,7 +89,15 @@ export async function bootstrapSession(session) {
     return;
   }
 
-  await refreshDB();
+  const defaultNav = document.getElementById(`nav-${defaultPage}`) || document.querySelector('.nt');
+  showPage(defaultPage, defaultNav);
+
+  try {
+    await refreshDB();
+  } catch (err) {
+    console.error('Background data load failed after login', err);
+    showLockedAccess('You are signed in, but the application data could not be loaded yet. Please refresh or contact support if this persists.');
+  }
 }
 
 export async function login(e) {
