@@ -1,8 +1,10 @@
 import { fetchAuditEvents } from '../services/dataService.js';
 import { hasPerm } from '../services/authService.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { h } from '../utils/sanitize.js';
 
 export async function renderAudit() {
+  if (!ensurePageAccess('audit', 'audit-content')) return;
   const el = document.getElementById('audit-content');
   if (!hasPerm('audit:read')) {
     el.innerHTML = '<div class="alert alert-e"><i class="ti ti-lock"></i> Audit logs are restricted to administrators.</div>';

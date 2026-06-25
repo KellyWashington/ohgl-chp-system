@@ -1,9 +1,32 @@
 export const ROLE_PERMS = {
   super_admin: ['*'],
-  facility_admin: ['facility:manage', 'patient:read', 'referral:*', 'chp:*', 'metrics:read', 'audit:read'],
-  clinician: ['patient:read', 'referral:read', 'referral:update', 'metrics:read'],
-  chp: ['referral:create', 'referral:read_own', 'chp:read_own'],
-  viewer: ['metrics:read', 'referral:read_summary'],
+  facility_admin: [
+    'facility:manage',
+    'facility:read',
+    'patient:read',
+    'patient:write',
+    'referral:*',
+    'chp:*',
+    'report:read',
+    'group:read',
+    'audit:read',
+  ],
+  facility_officer: [
+    'facility:read',
+    'patient:read',
+    'referral:create',
+    'referral:read',
+    'referral:update',
+    'report:read',
+  ],
+  chp: ['facility:read', 'referral:create', 'referral:read_own'],
+};
+
+export const ROLE_LABELS = {
+  super_admin: 'Super Admin',
+  facility_admin: 'Facility Administrator',
+  facility_officer: 'Facility Officer',
+  chp: 'CHP',
 };
 
 export const DEFAULT_FACS = [

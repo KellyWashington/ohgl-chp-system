@@ -3,18 +3,9 @@ import { fetchCoreData } from './services/dataService.js';
 import { makeFac } from './services/mappers.js';
 import { openModal, closeModal } from './components/modal.js';
 import { h, installInnerHTMLSanitizer, setSafeHTML } from './utils/sanitize.js';
-import {
-  DB,
-  setDB,
-  currentUser,
-  fac,
-} from './services/state.js';
-import {
-  login,
-  resetPassword,
-  logout,
-  bootstrapSession,
-} from './services/authService.js';
+import { canAccessPage, getDefaultPage, renderAccessDenied } from './services/rbac.js';
+import { DB, setDB, currentUser, currentProfile, setCurrentUser, setCurrentProfile, fac } from './services/state.js';
+import { login, resetPassword, logout, bootstrapSession, applyPermissionsUI } from './services/authService.js';
 
 // Page modules
 import { renderDash } from './pages/dashboard.js';
@@ -23,7 +14,7 @@ import { renderTracker, updRef, delRef } from './pages/tracker.js';
 import { renderDir, openAddCHP, openEditCHP, saveCHP, delCHP } from './pages/directory.js';
 import { renderReport } from './pages/report.js';
 import { renderGroup } from './pages/group.js';
-import { loadSettings, saveSettings, deleteFacility, addFacility, exportJSON, importJSON } from './pages/settings.js';
+import { loadSettings, saveSettings, deleteFacility, addFacility, exportJSON, importJSON, adminUserWizard } from './pages/settings.js';
 import { renderAudit } from './pages/audit.js';
 
 export function showAuth(isAuthed) {
@@ -123,9 +114,19 @@ export function updateHeader() {
 }
 
 export function showPage(id, el) {
+  if (!canAccessPage(id)) {
+    const fallback = getDefaultPage();
+    if (fallback && fallback !== id) {
+      return showPage(fallback, document.getElementById(`nav-${fallback}`) || document.querySelector('.nt'));
+    }
+    renderAccessDenied(`page-${id}`, 'This module is restricted to your role.');
+    return;
+  }
+  const target = document.getElementById('page-' + id);
+  if (!target) return;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nt').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
+  target.classList.add('active');
   if (el) el.classList.add('active');
   const map = {
     dashboard: renderDash,
@@ -189,7 +190,12 @@ sb?.auth.onAuthStateChange((_event, session) => {
   if (session && !currentUser) {
     bootstrapSession(session).catch(err => authAlert(err.message));
   }
-  if (!session) showAuth(false);
+  if (!session) {
+    setCurrentUser(null);
+    setCurrentProfile(null);
+    setDB({ facilities: [], activeFacId: null });
+    showAuth(false);
+  }
 });
 
 Object.assign(window, {
@@ -212,6 +218,7 @@ Object.assign(window, {
   saveSettings,
   exportJSON,
   importJSON,
+  adminUserWizard,
   addFacility,
   saveCHP,
   openEditCHP,

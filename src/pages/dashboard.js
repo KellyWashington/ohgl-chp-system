@@ -1,8 +1,10 @@
 import { CATS, CAT_COLORS, CAT_ICONS, MONTHS } from '../constants/appConstants.js';
 import { fac } from '../services/state.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { filterRefs, refInCategory, setPrintHeader, docCode } from '../utils/helpers.js';
 
 export function renderDash() {
+  if (!ensurePageAccess('dashboard', 'kpi-grid')) return;
   const f = fac();
   if (!f) return;
   

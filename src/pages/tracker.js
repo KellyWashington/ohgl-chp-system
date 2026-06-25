@@ -1,10 +1,12 @@
 import { fac, DB } from '../services/state.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { updateReferralField, deleteReferralRecord } from '../services/dataService.js';
 import { audit } from '../services/authService.js';
 import { sanitizeText } from '../utils/sanitize.js';
 import { setPrintHeader, docCode } from '../utils/helpers.js';
 
 export function renderTracker() {
+  if (!ensurePageAccess('tracker', 'tracker-tbl')) return;
   const f = fac();
   document.getElementById('tracker-fac-name').textContent = f ? f.location + ' - ' + f.name : '-';
   if (f) {
@@ -107,6 +109,7 @@ export function renderTracker() {
 }
 
 export async function updRef(facId, i, field, val) {
+  if (!ensurePageAccess('tracker', 'tracker-tbl')) return;
   const f = DB.facilities.find(x => x.id === facId);
   if (!f || !f.referrals[i]) return;
   const r = f.referrals[i];
@@ -133,6 +136,7 @@ export async function updRef(facId, i, field, val) {
 }
 
 export async function delRef(facId, i) {
+  if (!ensurePageAccess('tracker', 'tracker-tbl')) return;
   if (!confirm('Delete this referral?')) return;
   const f = DB.facilities.find(x => x.id === facId);
   if (!f) return;

@@ -28,7 +28,7 @@ create table facilities (
 create table users (
   id uuid primary key references auth.users(id) on delete cascade,
   facility_id uuid references facilities(id) on delete set null,
-  role app_role not null default 'viewer',
+  role app_role not null default 'chp',
   full_name text not null,
   email citext not null unique,
   phone text,
@@ -160,15 +160,61 @@ begin
   return (select facility_id from public.users where id = auth.uid() and active = true);
 end; $$;
 
+create or replace function normalized_user_role()
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select case current_user_role()::text
+    when 'clinician' then 'facility_officer'
+    when 'viewer' then 'chp'
+    else current_user_role()::text
+  end
+$$;
+
+create or replace function role_permissions(p_role text)
+returns text[]
+language sql
+stable
+immutable
+as $$
+  select case p_role
+    when 'super_admin' then array['*']::text[]
+    when 'facility_admin' then array['facility:manage','facility:read','patient:read','patient:write','referral:create','referral:read','referral:update','referral:delete','chp:read','chp:create','chp:update','chp:delete','report:read','group:read','audit:read']::text[]
+    when 'facility_officer' then array['facility:read','patient:read','referral:create','referral:read','referral:update','report:read']::text[]
+    when 'clinician' then array['facility:read','patient:read','referral:create','referral:read','referral:update','report:read']::text[]
+    when 'chp' then array['facility:read','referral:create','referral:read_own']::text[]
+    when 'viewer' then array['facility:read','referral:create','referral:read_own']::text[]
+    else array[]::text[]
+  end
+$$;
+
+create or replace function has_permission(required text)
+returns boolean
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+declare perms text[];
+begin
+  perms := public.role_permissions(public.normalized_user_role());
+  if perms is null then
+    return false;
+  end if;
+  return '*' = any(perms) or required = any(perms) or exists (select 1 from unnest(perms) as p where right(p, 2) = ':*' and required like left(p, length(p) - 1) || '%');
+end; $;
+
 create or replace function is_super_admin() returns boolean
 language sql stable security definer set search_path = public as $$
-  select public.current_user_role() = 'super_admin'
+  select public.normalized_user_role() = 'super_admin'
 $$;
 create or replace function same_facility(fid uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select public.is_super_admin() or fid = public.current_user_facility()
 $$;
-
 create or replace view dashboard_metrics with (security_invoker = true) as
 select facility_id, date_trunc('month', referral_date)::date as month,
   count(*) as total_referrals,
@@ -187,199 +233,31 @@ alter table referrals enable row level security;
 alter table appointments enable row level security;
 alter table audit_logs enable row level security;
 
-create policy facilities_select on facilities for select using (same_facility(id));
-create policy facilities_admin_write on facilities for all using (current_user_role() in ('super_admin','facility_admin')) with check (current_user_role() in ('super_admin','facility_admin'));
+create policy facilities_select on facilities for select using (same_facility(id) and has_permission('facility:read'));
+create policy facilities_admin_write on facilities for all using (has_permission('facility:manage')) with check (has_permission('facility:manage'));
 
-create policy users_select on users for select using (is_super_admin() or facility_id = current_user_facility() or id = auth.uid());
-create policy users_admin_write on users for all using (current_user_role() in ('super_admin','facility_admin')) with check (current_user_role() in ('super_admin','facility_admin'));
+create policy users_select on users for select using (is_super_admin() or id = auth.uid());
+create policy users_admin_write on users for all using (has_permission('user:manage')) with check (has_permission('user:manage'));
 
-create policy patients_select on patients for select using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician'));
-create policy patients_write on patients for all using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician')) with check (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician'));
+create policy patients_select on patients for select using (same_facility(facility_id) and has_permission('patient:read'));
+create policy patients_write on patients for all using (same_facility(facility_id) and has_permission('patient:write')) with check (same_facility(facility_id) and has_permission('patient:write'));
 
-create policy chp_select on chp_directory for select using (same_facility(facility_id));
-create policy chp_write on chp_directory for all using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin')) with check (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin'));
+create policy chp_select on chp_directory for select using (same_facility(facility_id) and (has_permission('chp:read') or has_permission('facility:manage')));
+create policy chp_write on chp_directory for all using (same_facility(facility_id) and has_permission('chp:create')) with check (same_facility(facility_id) and has_permission('chp:create'));
 
-create policy referrals_select on referrals for select using (same_facility(facility_id));
-create policy referrals_insert on referrals for insert with check (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician','chp'));
-create policy referrals_update on referrals for update using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician')) with check (same_facility(facility_id));
-create policy referrals_delete on referrals for delete using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin'));
+create policy referrals_select on referrals for select using (same_facility(facility_id) and (has_permission('referral:read') or (has_permission('referral:read_own') and (created_by = auth.uid() or chp_id in (select id from chp_directory where user_id = auth.uid())))));
+create policy referrals_insert on referrals for insert with check (same_facility(facility_id) and has_permission('referral:create'));
+create policy referrals_update on referrals for update using (same_facility(facility_id) and has_permission('referral:update')) with check (same_facility(facility_id) and has_permission('referral:update'));
+create policy referrals_delete on referrals for delete using (same_facility(facility_id) and has_permission('referral:delete'));
 
-create policy appt_select on appointments for select using (same_facility(facility_id));
-create policy appt_write on appointments for all using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician')) with check (same_facility(facility_id));
+create policy appt_select on appointments for select using (same_facility(facility_id) and has_permission('patient:read'));
+create policy appt_write on appointments for all using (same_facility(facility_id) and has_permission('patient:write')) with check (same_facility(facility_id) and has_permission('patient:write'));
 
 create policy audit_insert on audit_logs for insert with check (actor_id = auth.uid());
-create policy audit_select on audit_logs for select using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin'));
-
-create or replace function touch_updated_at() returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end; $$;
-create trigger trg_facilities_updated before update on facilities for each row execute function touch_updated_at();
-create trigger trg_patients_updated before update on patients for each row execute function touch_updated_at();
-create trigger trg_chp_updated before update on chp_directory for each row execute function touch_updated_at();
-create trigger trg_referrals_updated before update on referrals for each row execute function touch_updated_at();
-
--- Field-level PHI encryption helpers.
--- Production setup: set a 32+ byte secret outside source control, for example:
---   alter database postgres set app.phi_key = 'replace-with-random-secret-from-secret-manager';
-create or replace function phi_key() returns text language plpgsql stable as $$
-declare k text;
-begin
-  k := current_setting('app.phi_key', true);
-  if k is null or length(k) < 32 then
-    raise exception 'app.phi_key is not configured or is too short';
-  end if;
-  return k;
-end; $$;
-
-create or replace function phi_encrypt(value text) returns bytea language sql stable as $$
-  select case when value is null or value = '' then null else pgp_sym_encrypt(value, phi_key(), 'cipher-algo=aes256,compress-algo=1') end
-$$;
-
-create or replace function phi_decrypt(value bytea) returns text language sql stable as $$
-  select case when value is null then null else pgp_sym_decrypt(value, phi_key()) end
-$$;
-
-create or replace view chp_directory_secure with (security_invoker = true) as
-select id, facility_id, user_id, code,
-  phi_decrypt(full_name_ciphertext) as full_name,
-  phi_decrypt(national_id_ciphertext) as national_id,
-  phi_decrypt(phone_ciphertext) as phone,
-  village, community_unit, sha_trained, jumuisha_enrolled, active, notes, created_at, updated_at
-from chp_directory
-where same_facility(facility_id);
-
-create or replace view referrals_secure with (security_invoker = true) as
-select id, facility_id, patient_id, chp_id, slip_no, referral_date, chp_code, chp_unit,
-  phi_decrypt(patient_name_ciphertext) as patient_name,
-  age, sex, category, priority, sha_registered,
-  phi_decrypt(presenting_concern_ciphertext) as presenting_concern,
-  phi_decrypt(clinical_notes_ciphertext) as clinical_notes,
-  opd_status, received_by, file_no,
-  phi_decrypt(sha_no_ciphertext) as sha_no,
-  created_by, updated_by, created_at, updated_at
-from referrals
-where same_facility(facility_id);
-
-create or replace function create_referral_secure(payload jsonb)
-returns referrals_secure
-language plpgsql
-security invoker
-as $$
-declare rec referrals;
-begin
-  insert into referrals (
-    facility_id, slip_no, referral_date, chp_code, chp_unit, patient_name_ciphertext,
-    age, sex, category, priority, sha_registered, presenting_concern_ciphertext,
-    clinical_notes_ciphertext, opd_status, received_by, file_no, sha_no_ciphertext, created_by
-  ) values (
-    (payload->>'facility_id')::uuid,
-    payload->>'slip_no',
-    (payload->>'referral_date')::date,
-    payload->>'chp_code',
-    payload->>'chp_unit',
-    phi_encrypt(payload->>'patient_name'),
-    nullif(payload->>'age','')::int,
-    payload->>'sex',
-    coalesce(array(select jsonb_array_elements_text(payload->'category')), '{}'),
-    (payload->>'priority')::referral_priority,
-    coalesce((payload->>'sha_registered')::boolean, false),
-    phi_encrypt(payload->>'presenting_concern'),
-    phi_encrypt(payload->>'clinical_notes'),
-    coalesce((payload->>'opd_status')::opd_status, 'Pending'::opd_status),
-    payload->>'received_by',
-    payload->>'file_no',
-    phi_encrypt(payload->>'sha_no'),
-    auth.uid()
-  ) returning * into rec;
-
-  return (select r from referrals_secure r where r.id = rec.id);
-end; $$;
-
-create or replace function update_referral_secure(p_referral_id uuid, p_field text, p_value text)
-returns referrals_secure
-language plpgsql
-security invoker
-as $$
-declare rec referrals;
-begin
-  if p_field = 'patient' then
-    update referrals set patient_name_ciphertext = phi_encrypt(p_value), updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'notes' then
-    update referrals set clinical_notes_ciphertext = phi_encrypt(p_value), updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'date' then
-    update referrals set referral_date = p_value::date, updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'age' then
-    update referrals set age = nullif(p_value,'')::int, updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'sex' then
-    update referrals set sex = p_value, updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'priority' then
-    update referrals set priority = p_value::referral_priority, updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'sha' then
-    update referrals set sha_registered = (p_value = 'Yes'), updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  elsif p_field = 'opd_status' then
-    update referrals set opd_status = p_value::opd_status, updated_by = auth.uid() where id = p_referral_id returning * into rec;
-  else
-    raise exception 'Unsupported secure referral field: %', p_field;
-  end if;
-  return (select r from referrals_secure r where r.id = rec.id);
-end; $$;
-
-create or replace function upsert_chp_secure(payload jsonb)
-returns chp_directory_secure
-language plpgsql
-security invoker
-as $$
-declare rec chp_directory;
-begin
-  if payload ? 'id' and payload->>'id' is not null and payload->>'id' <> '' then
-    update chp_directory set
-      code = payload->>'code',
-      full_name_ciphertext = phi_encrypt(payload->>'full_name'),
-      national_id_ciphertext = phi_encrypt(payload->>'national_id'),
-      phone_ciphertext = phi_encrypt(payload->>'phone'),
-      village = payload->>'village',
-      community_unit = payload->>'community_unit',
-      sha_trained = coalesce((payload->>'sha_trained')::boolean, false),
-      jumuisha_enrolled = coalesce((payload->>'jumuisha_enrolled')::boolean, false),
-      active = coalesce((payload->>'active')::boolean, true),
-      notes = payload->>'notes'
-    where id = (payload->>'id')::uuid returning * into rec;
-  else
-    insert into chp_directory (facility_id, code, full_name_ciphertext, national_id_ciphertext, phone_ciphertext, village, community_unit, sha_trained, jumuisha_enrolled, active, notes)
-    values ((payload->>'facility_id')::uuid, payload->>'code', phi_encrypt(payload->>'full_name'), phi_encrypt(payload->>'national_id'), phi_encrypt(payload->>'phone'), payload->>'village', payload->>'community_unit', coalesce((payload->>'sha_trained')::boolean, false), coalesce((payload->>'jumuisha_enrolled')::boolean, false), coalesce((payload->>'active')::boolean, true), payload->>'notes')
-    returning * into rec;
-  end if;
-  return (select c from chp_directory_secure c where c.id = rec.id);
-end; $$;
-
-
--- Data subject requests for access, export, correction, and deletion workflows.
-create type dsr_type as enum ('access','export','correction','deletion','restriction');
-create type dsr_status as enum ('submitted','verified','in_progress','completed','rejected');
-
-create table if not exists data_subject_requests (
-  id uuid primary key default gen_random_uuid(),
-  facility_id uuid not null references facilities(id) on delete restrict,
-  patient_id uuid references patients(id) on delete set null,
-  request_type dsr_type not null,
-  status dsr_status not null default 'submitted',
-  requested_by text not null,
-  request_notes text,
-  verified_by uuid references users(id),
-  completed_by uuid references users(id),
-  rejection_reason text,
-  due_at timestamptz not null default (now() + interval '30 days'),
-  completed_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-alter table data_subject_requests enable row level security;
-create policy dsr_select on data_subject_requests for select using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin','clinician'));
-create policy dsr_write on data_subject_requests for all using (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin')) with check (same_facility(facility_id) and current_user_role() in ('super_admin','facility_admin'));
-create trigger trg_dsr_updated before update on data_subject_requests for each row execute function touch_updated_at();
-create index idx_dsr_facility_status_due on data_subject_requests(facility_id, status, due_at);
+create policy audit_select on audit_logs for select using (same_facility(facility_id) and has_permission('audit:read'));
 
 -- Server-side audit trigger backstop for direct SQL/API changes.
+
 create or replace function audit_row_change() returns trigger language plpgsql security definer as $$
 declare
   rid text;

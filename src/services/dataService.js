@@ -12,6 +12,14 @@ export function fetchUserProfile(userId) {
   return sb.from('users').select('*').eq('id', userId).single();
 }
 
+export function fetchUsers() {
+  return sb.from('users').select('id,facility_id,role,full_name,email,phone,active,last_login_at,created_at').order('full_name');
+}
+
+export function upsertUserProfile(payload) {
+  return sb.from('users').upsert(payload, { onConflict: 'id' }).select().single();
+}
+
 export function writeAuditLog({ actorId, action, tableName, recordId, facilityId, changes }) {
   return sb.from('audit_logs').insert({
     actor_id: actorId,

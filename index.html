@@ -322,6 +322,7 @@
   <div class="card">
     <div class="ch"><span class="ct"><i class="ti ti-database-export"></i> Data management</span></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" id="user-admin-btn" style="display:none" onclick="adminUserWizard()"><i class="ti ti-user-plus"></i> User profile wizard</button>
       <button class="btn btn-s btn-sm" onclick="exportJSON()"><i class="ti ti-download"></i> Export all data (.json)</button>
       <label class="btn btn-s btn-sm" style="cursor:pointer"><i class="ti ti-upload"></i> Import backup<input type="file" accept=".json" style="display:none" onchange="importJSON(event)"></label>
     </div>

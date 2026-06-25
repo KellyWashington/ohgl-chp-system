@@ -1,6 +1,7 @@
 import { fac, DB, setDB } from '../services/state.js';
-import { updateFacilityRecord, deleteFacilityRecord, createFacilityRecord } from '../services/dataService.js';
-import { audit, hasPerm } from '../services/authService.js';
+import { ensurePageAccess, hasPerm } from '../services/rbac.js';
+import { updateFacilityRecord, deleteFacilityRecord, createFacilityRecord, upsertUserProfile } from '../services/dataService.js';
+import { audit } from '../services/authService.js';
 import { sanitizeText } from '../utils/sanitize.js';
 import { makeFac } from '../services/mappers.js';
 import { closeModal } from '../components/modal.js';
@@ -8,6 +9,7 @@ import { updateHeader, showPage } from '../main.js';
 import { renderDash } from './dashboard.js';
 
 export function loadSettings() {
+  if (!ensurePageAccess('settings', 'settings-alert')) return;
   const f = fac();
   document.getElementById('settings-fac').textContent = f ? f.location + ' - ' + f.name : 'No facility selected';
   if (!f) return;
@@ -21,9 +23,12 @@ export function loadSettings() {
   document.getElementById('s-year').value = f.year || 2026;
   document.getElementById('s-compiler').value = f.compiler || '';
   document.getElementById('s-coic').value = f.coic || '';
+  const userBtn = document.getElementById('user-admin-btn');
+  if (userBtn) userBtn.style.display = hasPerm('user:manage') ? 'inline-flex' : 'none';
 }
 
 export async function saveSettings() {
+  if (!ensurePageAccess('settings', 'settings-alert')) return;
   const f = fac();
   if (!f) {
     alert('No facility selected.');
@@ -64,6 +69,7 @@ export async function saveSettings() {
 }
 
 export async function deleteFacility() {
+  if (!ensurePageAccess('settings', 'settings-alert')) return;
   const f = fac();
   if (!f) return;
   if (!confirm('Delete ' + f.location + ' - ' + f.name + ' and ALL its data?')) return;
@@ -82,6 +88,7 @@ export async function deleteFacility() {
 }
 
 export async function addFacility() {
+  if (!ensurePageAccess('settings', 'settings-alert')) return;
   const name = sanitizeText(document.getElementById('af-name').value, 160);
   if (!name) {
     alert('Please enter the facility name.');
@@ -112,7 +119,56 @@ export async function addFacility() {
   ['af-name', 'af-loc', 'af-email', 'af-phone'].forEach(id => (document.getElementById(id).value = ''));
 }
 
+
+export async function adminUserWizard() {
+  if (!hasPerm('user:manage')) {
+    alert('Only super admins can manage user profiles.');
+    return;
+  }
+
+  const id = prompt('Auth user UUID (from Supabase Auth):');
+  if (!id) return;
+  const fullName = prompt('Full name:');
+  if (!fullName) return;
+  const email = prompt('Email address:');
+  if (!email) return;
+  const phone = prompt('Phone number (optional):') || '';
+  const role = prompt('Role (super_admin, facility_admin, facility_officer, chp):', 'chp');
+  if (!role) return;
+  const normalizedRole = ['super_admin', 'facility_admin', 'facility_officer', 'chp'].includes(role) ? role : null;
+  if (!normalizedRole) {
+    alert('Invalid role. Use one of: super_admin, facility_admin, facility_officer, chp.');
+    return;
+  }
+  const facilityId = normalizedRole === 'super_admin' ? null : prompt('Facility UUID (required for non-super-admin roles):');
+  if (normalizedRole !== 'super_admin' && !facilityId) {
+    alert('A facility UUID is required for non-super-admin roles.');
+    return;
+  }
+  const active = confirm('Should this profile be active?');
+
+  const payload = {
+    id: id.trim(),
+    full_name: sanitizeText(fullName, 160),
+    email: sanitizeText(email, 160),
+    phone: sanitizeText(phone, 40),
+    role: normalizedRole,
+    facility_id: normalizedRole === 'super_admin' ? null : facilityId.trim(),
+    active,
+  };
+
+  const { error } = await upsertUserProfile(payload);
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await audit('upsert', 'users', payload.id, { role: payload.role, active: payload.active });
+  alert('User profile saved.');
+}
+
 export function exportJSON() {
+  if (!ensurePageAccess('settings', 'settings-alert')) return;
   if (!hasPerm('audit:read')) {
     alert('Only administrators can export operational data.');
     return;

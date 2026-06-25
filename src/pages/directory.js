@@ -1,4 +1,5 @@
 import { fac, editingCHPIdx, setEditingCHPIdx } from '../services/state.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { saveChpRecord, deleteChpRecord } from '../services/dataService.js';
 import { audit } from '../services/authService.js';
 import { sanitizeText } from '../utils/sanitize.js';
@@ -6,6 +7,7 @@ import { openModal, closeModal } from '../components/modal.js';
 import { setPrintHeader, docCode } from '../utils/helpers.js';
 
 export function renderDir() {
+  if (!ensurePageAccess('directory', 'chp-dir-content')) return;
   const f = fac();
   document.getElementById('dir-fac-name').textContent = f ? f.location + ' - ' + f.name : '-';
   if (f) {
@@ -84,6 +86,7 @@ export function renderDir() {
 }
 
 export function openAddCHP() {
+  if (!ensurePageAccess('directory', 'chp-modal')) return;
   const f = fac();
   if (!f) {
     alert('Select a facility first.');
@@ -104,6 +107,7 @@ export function openAddCHP() {
 }
 
 export function openEditCHP(i) {
+  if (!ensurePageAccess('directory', 'chp-modal')) return;
   const f = fac();
   if (!f) return;
   const c = f.chps[i];
@@ -124,6 +128,7 @@ export function openEditCHP(i) {
 }
 
 export async function saveCHP() {
+  if (!ensurePageAccess('directory', 'chp-modal')) return;
   const f = fac();
   if (!f) return;
   const name = sanitizeText(document.getElementById('m-name').value, 160);
@@ -173,6 +178,7 @@ export async function saveCHP() {
 }
 
 export async function delCHP(i) {
+  if (!ensurePageAccess('directory', 'chp-dir-content')) return;
   if (!confirm('Remove this CHP?')) return;
   const f = fac();
   if (!f) return;

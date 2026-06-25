@@ -1,7 +1,9 @@
 import { DB } from '../services/state.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { switchFac, showPage } from '../main.js';
 
 export function renderGroup() {
+  if (!ensurePageAccess('group', 'group-cards')) return;
   const allR = DB.facilities.flatMap(f => f.referrals || []);
   const tot = allR.length;
   const att = allR.filter(r => r.opd_status === 'Attended').length;

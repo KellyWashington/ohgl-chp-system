@@ -1,9 +1,11 @@
 import { fac, selectedPriority, setSelectedPriority } from '../services/state.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { createReferralRecord } from '../services/dataService.js';
 import { audit } from '../services/authService.js';
 import { sanitizeText } from '../utils/sanitize.js';
 
 export function initSlip() {
+  if (!ensurePageAccess('new_referral', 'ref-alert')) return;
   const f = fac();
   if (!f) return;
   document.getElementById('slip-hdr-r').innerHTML =
@@ -67,6 +69,7 @@ export function clearSlipForm() {
 }
 
 export async function submitReferral() {
+  if (!ensurePageAccess('new_referral', 'ref-alert')) return;
   const f = fac();
   if (!f) {
     document.getElementById('ref-alert').innerHTML = `<div class="alert alert-e"><i class="ti ti-alert-circle"></i> Please select a facility first.</div>`;

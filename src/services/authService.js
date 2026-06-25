@@ -1,43 +1,36 @@
 import { sb, requireSupabase } from './supabaseClient.js';
 import { fetchUserProfile, writeAuditLog } from './dataService.js';
-import { sanitizeText, setSafeHTML, h } from '../utils/sanitize.js';
-import { ROLE_PERMS } from '../constants/appConstants.js';
-import {
-  currentUser,
-  currentProfile,
-  setCurrentUser,
-  setCurrentProfile,
-  DB,
-  setDB,
-} from './state.js';
+import { sanitizeText } from '../utils/sanitize.js';
+import { hasPerm, getAllowedPages, getDefaultPage, getRoleLabel } from './rbac.js';
+import { currentUser, currentProfile, setCurrentUser, setCurrentProfile, DB, setDB } from './state.js';
 
 // We import UI orchestrators from main.js (circular imports are resolved post-load in ESM)
-import { showAuth, refreshDB, authAlert } from '../main.js';
+import { showAuth, refreshDB, authAlert, showPage } from '../main.js';
 
-export function hasPerm(perm) {
-  const perms = ROLE_PERMS[currentProfile?.role] || [];
-  return (
-    perms.includes('*') ||
-    perms.includes(perm) ||
-    perms.some(p => p.endsWith(':*') && perm.startsWith(p.slice(0, -1)))
-  );
+export { hasPerm } from "./rbac.js";
+
+function setNavVisibility(pageId, visible) {
+  const el = document.getElementById(`nav-${pageId}`);
+  if (el) el.style.display = visible ? "block" : "none";
 }
 
 export function applyPermissionsUI() {
   if (!currentProfile) return;
-  const role = currentProfile.role;
-  document.getElementById('nav-dashboard').style.display = 'block';
-  document.getElementById('nav-new_referral').style.display = hasPerm('referral:create') ? 'block' : 'none';
-  document.getElementById('nav-tracker').style.display =
-    hasPerm('referral:read') || hasPerm('referral:read_own') ? 'block' : 'none';
-  document.getElementById('nav-directory').style.display =
-    hasPerm('chp:*') || hasPerm('chp:read_own') ? 'block' : 'none';
-  document.getElementById('nav-report').style.display =
-    hasPerm('facility:manage') || hasPerm('audit:read') ? 'block' : 'none';
-  document.getElementById('nav-group').style.display = role === 'super_admin' ? 'block' : 'none';
-  document.getElementById('nav-settings').style.display = hasPerm('facility:manage') ? 'block' : 'none';
-  document.getElementById('nav-audit').style.display = hasPerm('audit:read') ? 'block' : 'none';
-  document.getElementById('add-fac-btn').style.display = role === 'super_admin' ? 'block' : 'none';
+  const allowed = new Set(getAllowedPages(currentProfile));
+  ['dashboard', 'new_referral', 'tracker', 'directory', 'report', 'group', 'settings', 'audit'].forEach(pageId => {
+    setNavVisibility(pageId, allowed.has(pageId));
+  });
+  setNavVisibility('dashboard', true);
+  const addFacilityBtn = document.getElementById('add-fac-btn');
+  if (addFacilityBtn) addFacilityBtn.style.display = hasPerm('facility:manage') ? "block" : "none";
+  const activePage = document.querySelector('.page.active')?.id?.replace('page-', "");
+  if (activePage && !allowed.has(activePage)) {
+    const fallback = getDefaultPage(currentProfile);
+    if (fallback) {
+      const fallbackNav = document.getElementById(`nav-${fallback}`);
+      showPage(fallback, fallbackNav || document.querySelector('.nt'));
+    }
+  }
 }
 
 export async function audit(action, tableName, recordId, changes = {}) {
@@ -56,10 +49,25 @@ export async function bootstrapSession(session) {
   setCurrentUser(session.user);
   const { data: profile, error: profileErr } = await fetchUserProfile(session.user.id);
   if (profileErr) throw profileErr;
+  if (!profile || !profile.active) {
+    await sb.auth.signOut();
+    setCurrentUser(null);
+    setCurrentProfile(null);
+    showAuth(false);
+    throw new Error('Your account is inactive or missing a profile.');
+  }
   setCurrentProfile(profile);
-  document.getElementById('current-user').textContent = `${profile.full_name || session.user.email} - ${profile.role}`;
+  document.getElementById('current-user').textContent = `${profile.full_name || session.user.email} - ${getRoleLabel(profile.role)}`;
   applyPermissionsUI();
   showAuth(true);
+  const defaultPage = getDefaultPage(profile);
+  if (!defaultPage) {
+    await sb.auth.signOut();
+    setCurrentUser(null);
+    setCurrentProfile(null);
+    showAuth(false);
+    throw new Error('Your role does not have access to any application modules.');
+  }
   await refreshDB();
 }
 
@@ -71,8 +79,8 @@ export async function login(e) {
   
   if (btn && btnText && spinner) {
     btn.disabled = true;
-    btnText.style.display = 'none';
-    spinner.style.display = 'inline-block';
+    btnText.style.display = "none";
+    spinner.style.display = "inline-block";
   }
 
   try {
@@ -87,8 +95,8 @@ export async function login(e) {
     authAlert(err.message || 'Login failed');
     if (btn && btnText && spinner) {
       btn.disabled = false;
-      btnText.style.display = 'inline-flex';
-      spinner.style.display = 'none';
+      btnText.style.display = "inline-flex";
+      spinner.style.display = "none";
     }
   }
 }
@@ -101,7 +109,7 @@ export async function resetPassword() {
   }
   
   const resetBtn = document.getElementById('auth-reset-btn');
-  const originalHtml = resetBtn ? resetBtn.innerHTML : '';
+  const originalHtml = resetBtn ? resetBtn.innerHTML : "";
   if (resetBtn) {
     resetBtn.disabled = true;
     resetBtn.innerHTML = '<span class="spinner"></span> Sending...';

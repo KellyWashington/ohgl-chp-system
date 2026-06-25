@@ -1,8 +1,10 @@
 import { MONTHS } from '../constants/appConstants.js';
 import { fac } from '../services/state.js';
+import { ensurePageAccess } from '../services/rbac.js';
 import { filterRefs } from '../utils/helpers.js';
 
 export function renderReport() {
+  if (!ensurePageAccess('report', 'report-content')) return;
   const f = fac();
   if (!f) {
     document.getElementById('report-content').innerHTML = `<div class="alert alert-i"><i class="ti ti-info-circle"></i> Please select a facility.</div>`;
