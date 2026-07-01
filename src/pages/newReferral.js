@@ -6,6 +6,7 @@ import { sanitizeText } from '../utils/sanitize.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { messaging } from '../services/messagingService.js';
 import { integrations } from '../services/integrationService.js';
+import { showPage, refreshDB } from '../main.js';
 
 
 const ACTIVE_STATUSES = ['Submitted', 'Under Review', 'Received', 'In Consultation', 'Admitted'];
@@ -193,7 +194,15 @@ export async function submitReferral() {
   slip.id = data.slip_no || referralNo;
   f.referrals.push(slip);
   await audit('create', 'referrals', data.id, { slip_no: slip.id });
-  alertBox(`Referral <strong>${slip.id}</strong> submitted to Facility Officer review.`, 'alert-s');
   clearSlipForm();
+  await refreshDB();
+  showPage('my_referrals', document.getElementById('nav-my_referrals'));
+  const myAlert = document.getElementById('my-referrals-alert');
+  if (myAlert) {
+    myAlert.innerHTML = `<div class="alert alert-s"><i class="ti ti-circle-check"></i> Referral <strong>${slip.id}</strong> submitted successfully.</div>`;
+    setTimeout(() => {
+      myAlert.innerHTML = '';
+    }, 5000);
+  }
   window.scrollTo(0, 0);
 }
