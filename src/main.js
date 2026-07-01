@@ -6,13 +6,16 @@ import { h, installInnerHTMLSanitizer, setSafeHTML } from './utils/sanitize.js';
 import { canAccessPage, getDefaultPage, renderAccessDenied } from './services/rbac.js';
 import { DB, setDB, currentUser, currentProfile, setCurrentUser, setCurrentProfile, fac } from './services/state.js';
 import { login, resetPassword, logout, bootstrapSession, applyPermissionsUI } from './services/authService.js';
+import { toggleNotifDropdown, refreshNotifications, markNotificationAsRead, markAllNotificationsAsRead } from './services/notificationService.js';
+
 
 // Page modules
 import { renderDash } from './pages/dashboard.js';
-import { initSlip, selectPri, clearSlipForm, submitReferral, autofillCHP } from './pages/newReferral.js';
+import { initSlip, clearSlipForm, submitReferral } from './pages/newReferral.js';
 import { renderTracker, updRef, delRef } from './pages/tracker.js';
+import { renderMyReferrals } from './pages/myReferrals.js';
 import { renderDir, openAddCHP, openEditCHP, saveCHP, delCHP } from './pages/directory.js';
-import { renderReport } from './pages/report.js';
+import { renderReport, onReportFilterTypeChange, exportReport } from './pages/report.js';
 import { renderGroup } from './pages/group.js';
 import { loadSettings, saveSettings, deleteFacility, addFacility, exportJSON, importJSON, adminUserWizard } from './pages/settings.js';
 import { renderAudit } from './pages/audit.js';
@@ -52,6 +55,7 @@ export async function refreshDB() {
         active: c.active,
         notes: c.notes,
         id: c.id,
+        user_id: c.user_id,
         facility_id: c.facility_id,
       }));
     f.referrals = (refs || [])
@@ -64,6 +68,11 @@ export async function refreshDB() {
         chp_code: r.chp_code,
         chp_unit: r.chp_unit,
         patient: r.patient_name,
+        national_id: r.national_id,
+        phone: r.phone,
+        county: r.county,
+        subcounty: r.subcounty,
+        village: r.village,
         age: r.age,
         sex: r.sex,
         category: (r.category || []).join(', '),
@@ -71,10 +80,19 @@ export async function refreshDB() {
         sha: r.sha_registered ? 'Yes' : 'No',
         complaint: r.presenting_concern,
         notes: r.clinical_notes,
+        referral_reason: r.referral_reason,
+        referral_facility: r.referral_facility_name || r.referral_facility,
+        referral_facility_id: r.referral_facility_id,
+        department: r.department,
+        workflow_status: r.workflow_status || r.opd_status || 'Submitted',
+        status: r.workflow_status || r.opd_status || 'Submitted',
+        timeline: r.timeline || [],
         opd_status: r.opd_status,
         received_by: r.received_by,
         file_no: r.file_no,
         sha_no: r.sha_no,
+        created_by: r.created_by,
+        created_by_name: r.created_by_name,
         created: r.created_at,
       }));
   });
@@ -82,6 +100,7 @@ export async function refreshDB() {
   const activeFacId = sessionStorage.getItem('ohgl_active_facility') || newFacilities[0]?.id || null;
   setDB({ facilities: newFacilities, activeFacId });
   updateHeader();
+  refreshNotifications().catch(console.error);
   renderDash();
 }
 
@@ -130,6 +149,7 @@ export function showPage(id, el) {
   if (el) el.classList.add('active');
   const map = {
     dashboard: renderDash,
+    my_referrals: renderMyReferrals,
     tracker: renderTracker,
     directory: renderDir,
     report: renderReport,
@@ -145,7 +165,8 @@ export function printPage(id) {
   const tabIndex = {
     dashboard: 0,
     new_referral: 1,
-    tracker: 2,
+    my_referrals: 2,
+    tracker: 3,
     directory: 3,
     report: 4,
     group: 5,
@@ -161,14 +182,15 @@ export function exportPDF() {
 
 export function togglePasswordVisibility() {
   const pwdInput = document.getElementById('auth-password');
+  const toggleBtn = document.querySelector('.password-toggle-btn');
   const toggleIcon = document.getElementById('password-toggle-icon');
   if (pwdInput && toggleIcon) {
-    if (pwdInput.type === 'password') {
-      pwdInput.type = 'text';
-      toggleIcon.className = 'ti ti-eye-off';
-    } else {
-      pwdInput.type = 'password';
-      toggleIcon.className = 'ti ti-eye';
+    const showing = pwdInput.type === 'password';
+    pwdInput.type = showing ? 'text' : 'password';
+    toggleIcon.className = showing ? 'ti ti-eye-off' : 'ti ti-eye';
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
+      toggleBtn.setAttribute('aria-pressed', String(showing));
     }
   }
 }
@@ -207,13 +229,14 @@ Object.assign(window, {
   closeModal,
   exportPDF,
   renderDash,
-  autofillCHP,
-  selectPri,
   clearSlipForm,
   submitReferral,
   renderTracker,
+  renderMyReferrals,
   openAddCHP,
   renderReport,
+  onReportFilterTypeChange,
+  exportReport,
   deleteFacility,
   saveSettings,
   exportJSON,
@@ -227,4 +250,7 @@ Object.assign(window, {
   delRef,
   logout,
   togglePasswordVisibility,
+  toggleNotifDropdown,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
 });

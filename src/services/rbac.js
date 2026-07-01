@@ -7,12 +7,13 @@ export const ROLE_ALIASES = { clinician: 'facility_officer', viewer: 'chp' };
 export const PAGE_ACCESS = {
   dashboard: ['super_admin', 'facility_admin', 'facility_officer', 'chp'],
   new_referral: ['super_admin', 'facility_admin', 'facility_officer', 'chp'],
+  my_referrals: ['super_admin', 'facility_admin', 'facility_officer', 'chp'],
   tracker: ['super_admin', 'facility_admin', 'facility_officer'],
   directory: ['super_admin', 'facility_admin'],
   report: ['super_admin', 'facility_admin', 'facility_officer'],
   group: ['super_admin'],
   settings: ['super_admin', 'facility_admin'],
-  audit: ['super_admin', 'facility_admin'],
+  audit: ['super_admin'],
 };
 
 export const NAV_ITEMS = Object.keys(PAGE_ACCESS);
@@ -42,7 +43,7 @@ export function getAllowedPages(profile = currentProfile) {
 }
 
 export function getDefaultPage(profile = currentProfile) {
-  const priority = ['dashboard', 'new_referral', 'tracker', 'directory', 'report', 'group', 'settings', 'audit'];
+  const priority = ['new_referral', 'my_referrals', 'tracker', 'dashboard', 'directory', 'report', 'group', 'settings', 'audit'];
   return priority.find(pageId => canAccessPage(pageId, profile)) || null;
 }
 

@@ -9,7 +9,6 @@ export const ROLE_PERMS = {
     'chp:*',
     'report:read',
     'group:read',
-    'audit:read',
   ],
   facility_officer: [
     'facility:read',

@@ -192,8 +192,68 @@ export function exportJSON() {
   a.click();
 }
 
-export function importJSON() {
-  alert(
-    'Bulk imports must use the vetted Supabase migration script in docs/MIGRATION_PLAN.md so records are validated, encrypted, and audited.'
-  );
+export function importJSON(event) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+
+  // 1. Secure File Validation: Extension checks
+  const allowedExtensions = /(\.json)$/i;
+  if (!allowedExtensions.exec(file.name) || file.type !== 'application/json') {
+    alert('Security Violation: Only valid JSON files (.json) are permitted.');
+    event.target.value = '';
+    return;
+  }
+
+  // 2. Safe Size Limit: Max 2MB
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Security Violation: File size exceeds the 2MB safety limit.');
+    event.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      const data = JSON.parse(text);
+
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error('Invalid JSON structure. Root must be a JSON object.');
+      }
+
+      if (!Array.isArray(data.facilities)) {
+        throw new Error('Invalid schema structure. Missing "facilities" list.');
+      }
+
+      // 3. Schema Structure & XSS Sanitization Validation
+      for (const f of data.facilities) {
+        if (!f.name || typeof f.name !== 'string') {
+          throw new Error('Schema Violation: Facility name is required.');
+        }
+        if (!f.location || typeof f.location !== 'string') {
+          throw new Error('Schema Violation: Facility location is required.');
+        }
+
+        // Sanitise inputs using DOMPurify for XSS Protection
+        f.name = DOMPurify.sanitize(f.name.trim());
+        f.location = DOMPurify.sanitize(f.location.trim());
+
+        if (f.chps && Array.isArray(f.chps)) {
+          for (const c of f.chps) {
+            if (!c.code) throw new Error('Schema Violation: CHP code is required.');
+            if (!c.name) throw new Error('Schema Violation: CHP name is required.');
+            c.code = DOMPurify.sanitize(String(c.code).trim());
+            c.name = DOMPurify.sanitize(String(c.name).trim());
+          }
+        }
+      }
+
+      alert('Backup file check passed. Safe JSON schema detected. Proceed with migration via Supabase tools as outlined in docs/MIGRATION_PLAN.md.');
+    } catch (err) {
+      alert('Security/Validation Error: ' + err.message);
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
 }

@@ -56,7 +56,10 @@ export function deleteChpRecord(chpId) {
 }
 
 export function fetchAuditEvents(limit = 100) {
-  return sb.from('audit_logs').select('created_at,action,table_name,record_id,actor_id,changes').order('created_at', { ascending: false }).limit(limit);
+  return sb.from('audit_logs')
+    .select('created_at,action,table_name,record_id,actor_id,ip_address,changes, users(email, full_name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
 }
 
 export function updateFacilityRecord(facilityId, payload) {
@@ -70,3 +73,40 @@ export function deleteFacilityRecord(facilityId) {
 export function createFacilityRecord(payload) {
   return sb.from('facilities').insert(payload).select().single();
 }
+
+export function fetchNotifications(userId, facilityId) {
+  if (!userId) return Promise.resolve({ data: [], error: null });
+  // Query notifications for user, or facility-wide notifications (where user_id is null)
+  let query = sb.from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+    
+  if (facilityId) {
+    query = query.or(`user_id.eq.${userId},and(facility_id.eq.${facilityId},user_id.is.null)`);
+  } else {
+    query = query.eq('user_id', userId);
+  }
+  return query;
+}
+
+export function markNotificationRead(notifId) {
+  return sb.from('notifications')
+    .update({ read: true })
+    .eq('id', notifId);
+}
+
+export function markAllNotificationsRead(userId, facilityId) {
+  if (!userId) return Promise.resolve({ data: [], error: null });
+  let query = sb.from('notifications')
+    .update({ read: true })
+    .eq('read', false);
+    
+  if (facilityId) {
+    query = query.or(`user_id.eq.${userId},and(facility_id.eq.${facilityId},user_id.is.null)`);
+  } else {
+    query = query.eq('user_id', userId);
+  }
+  return query;
+}
+

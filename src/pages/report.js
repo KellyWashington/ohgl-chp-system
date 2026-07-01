@@ -1,143 +1,346 @@
 import { MONTHS } from '../constants/appConstants.js';
-import { fac } from '../services/state.js';
+import { fac, DB, currentProfile } from '../services/state.js';
 import { ensurePageAccess } from '../services/rbac.js';
-import { filterRefs } from '../utils/helpers.js';
+import { h } from '../utils/sanitize.js';
+
+export function onReportFilterTypeChange() {
+  const filterType = document.getElementById('r-filter-type')?.value;
+  const monthCont = document.getElementById('r-month-select-container');
+  const customCont = document.getElementById('r-custom-dates');
+  
+  if (monthCont && customCont) {
+    if (filterType === 'custom') {
+      monthCont.style.display = 'none';
+      customCont.style.display = 'flex';
+    } else if (filterType === 'monthly') {
+      monthCont.style.display = 'block';
+      customCont.style.display = 'none';
+    } else {
+      monthCont.style.display = 'none';
+      customCont.style.display = 'none';
+    }
+  }
+  renderReport();
+}
+
+function getReportDateRange() {
+  const filterType = document.getElementById('r-filter-type')?.value || 'monthly';
+  const now = new Date();
+  let start, end;
+  
+  if (filterType === 'daily') {
+    const today = now.toISOString().split('T')[0];
+    start = new Date(today + 'T00:00:00');
+    end = new Date(today + 'T23:59:59');
+  } else if (filterType === 'weekly') {
+    const startWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    startWeek.setHours(0, 0, 0, 0);
+    start = startWeek;
+    end = new Date(now.getTime());
+  } else if (filterType === 'monthly') {
+    const m = parseInt(document.getElementById('r-month')?.value) || (now.getMonth() + 1);
+    const y = parseInt(document.getElementById('r-year')?.value) || now.getFullYear();
+    start = new Date(y, m - 1, 1, 0, 0, 0);
+    end = new Date(y, m, 0, 23, 59, 59);
+  } else if (filterType === 'custom') {
+    const startVal = document.getElementById('r-start-date')?.value;
+    const endVal = document.getElementById('r-end-date')?.value;
+    start = startVal ? new Date(startVal + 'T00:00:00') : new Date(0);
+    end = endVal ? new Date(endVal + 'T23:59:59') : new Date();
+  }
+  return { start, end };
+}
 
 export function renderReport() {
   if (!ensurePageAccess('report', 'report-content')) return;
   const f = fac();
-  if (!f) {
+  if (!f && currentProfile?.role !== 'super_admin') {
     document.getElementById('report-content').innerHTML = `<div class="alert alert-i"><i class="ti ti-info-circle"></i> Please select a facility.</div>`;
     return;
   }
-  const y = parseInt(document.getElementById('r-year').value) || 2026;
-  const yRefs = (f.referrals || []).filter(r => r.date && new Date(r.date).getFullYear() === y);
-  const tok = f.token || 200;
-  const totAtt = yRefs.filter(r => r.opd_status === 'Attended').length;
-  const totEmg = yRefs.filter(r => r.priority === 'Emergency').length;
-  const totSha = yRefs.filter(r => r.sha === 'Yes').length;
-  const totTok = totAtt * tok;
 
-  // SECTION 1: header
-  const repHdr = `<div class="card" style="border-top:4px solid var(--P);text-align:center;padding:16px 20px">
-    <div style="font-size:16px;font-weight:700;color:var(--PD)">OASIS HEALTH - Oasis Healthcare Group Limited</div>
-    <div style="font-size:12px;color:var(--MU)">CHP Engagement &amp; Community Referral Tracking System</div>
-    <div style="font-size:11px;color:var(--MU);margin-top:3px">${f.location} - ${f.name} &nbsp;-&nbsp; ${f.level} &nbsp;-&nbsp; Report Year: ${y}</div>
-    <div style="font-size:10px;color:var(--MU);font-family:monospace;margin-top:2px">OHGL-CHP-DASH-${y} &nbsp;-&nbsp; CONFIDENTIAL - OHGL Internal Document</div>
-  </div>`;
+  const { start, end } = getReportDateRange();
+  const reportType = document.getElementById('r-type').value;
+  
+  // 1. Gather relevant referrals based on user role (Super Admin can see all facility data)
+  let referrals = [];
+  if (currentProfile?.role === 'super_admin') {
+    referrals = DB.facilities.flatMap(facObj => facObj.referrals || []);
+  } else if (f) {
+    referrals = f.referrals || [];
+  }
+  
+  // 2. Filter referrals by date range
+  const filtered = referrals.filter(r => {
+    if (!r.date) return false;
+    const d = new Date(r.date);
+    return d >= start && d <= end;
+  });
 
-  // SECTION 2: monthly trend table (matches PDF page 2 exactly)
-  const trendMetrics = [
-    { lbl: 'Total Referrals', fn: r => r.length, color: '#00A896' },
-    { lbl: 'Attended OPD', fn: r => r.filter(x => x.opd_status === 'Attended').length, color: '#059669' },
-    { lbl: 'Emergency', fn: r => r.filter(x => x.priority === 'Emergency').length, color: '#C62828' },
-    { lbl: 'SHA Registered', fn: r => r.filter(x => x.sha === 'Yes').length, color: '#1E40AF' },
-    { lbl: 'Pending', fn: r => r.filter(x => !x.opd_status || x.opd_status === 'Pending').length, color: '#F59E0B' },
-  ];
-  const trendRows = trendMetrics
-    .map(m => {
-      const vals = MONTHS.map((_, mi) => m.fn(yRefs.filter(r => new Date(r.date).getMonth() === mi)));
-      const tot = vals.reduce((a, b) => a + b, 0);
-      return `<tr>
-      <td><span class="metric-pill" style="background:${m.color}"></span>${m.lbl}</td>
-      ${vals.map(v => `<td>${v || '-'}</td>`).join('')}
-      <td style="font-weight:700;background:var(--PXL);color:${m.color}">${tot}</td>
-    </tr>`;
-    })
-    .join('');
+  // 3. Compile report type
+  let reportHtml = '';
+  const rangeStr = `From ${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
+  
+  if (reportType === 'facility') {
+    reportHtml = compileFacilityReport(filtered, rangeStr);
+  } else if (reportType === 'county') {
+    reportHtml = compileCountyReport(filtered, rangeStr);
+  } else if (reportType === 'outcome') {
+    reportHtml = compileOutcomeReport(filtered, rangeStr);
+  } else if (reportType === 'completion') {
+    reportHtml = compileCompletionReport(filtered, rangeStr);
+  } else if (reportType === 'trends') {
+    reportHtml = compileTrendsReport(filtered, rangeStr);
+  }
 
-  const trendSec = `<div class="card">
-    <div class="ch"><span class="ct"><i class="ti ti-chart-line"></i> Monthly Trend - Referral Performance</span></div>
-    <div style="overflow-x:auto">
-    <table class="trend-tbl">
-      <thead><tr><th>Month</th>${MONTHS.map(m => `<th>${m}</th>`).join('')}<th style="background:var(--PXL)">Total</th></tr></thead>
-      <tbody>${trendRows}</tbody>
-    </table></div>
-  </div>`;
+  document.getElementById('report-content').innerHTML = reportHtml;
+}
 
-  // SECTION 3: CHP Performance Summary table (matches PDF page 2 exactly)
-  const chpRows = (f.chps || [])
-    .map(c => {
-      const cr = yRefs.filter(r => r.chp_code === c.code);
-      const ca = cr.filter(r => r.opd_status === 'Attended').length;
-      const ce = cr.filter(r => r.priority === 'Emergency').length;
-      const cs = cr.filter(r => r.sha === 'Yes').length;
-      return `<tr>
-      <td style="font-weight:700;color:var(--P)">${c.code}</td>
-      <td>${c.name || '-'}</td>
-      <td style="font-size:11px">${c.unit || '-'}</td>
-      <td style="text-align:center">${cr.length}</td>
-      <td style="text-align:center">${ca}</td>
-      <td style="text-align:center">${ce}</td>
-      <td style="text-align:center">${cs}</td>
-      <td style="text-align:center;font-weight:600">KES ${(ca * tok).toLocaleString()}</td>
-      <td>
-        <div class="chk-pair">
-          <label><input type="checkbox" ${c.active == '1' || c.active === true ? 'checked' : ''}> Active</label>
-          <label><input type="checkbox" ${!(c.active == '1' || c.active === true) ? 'checked' : ''}> Inact.</label>
-        </div>
-      </td>
-    </tr>`;
-    })
-    .join('');
+function compileFacilityReport(refs, rangeStr) {
+  const facGroup = {};
+  
+  refs.forEach(r => {
+    const fName = r.referral_facility || 'Unknown Facility';
+    if (!facGroup[fName]) {
+      facGroup[fName] = { total: 0, completed: 0, pending: 0, emergency: 0 };
+    }
+    const g = facGroup[fName];
+    g.total++;
+    const status = r.workflow_status || r.status || 'Submitted';
+    if (status === 'Completed') {
+      g.completed++;
+    } else if (['Submitted', 'Under Review', 'Received', 'In Consultation', 'Admitted'].includes(status)) {
+      g.pending++;
+    }
+    if (r.priority === 'Emergency') {
+      g.emergency++;
+    }
+  });
 
-  const chpSec = (f.chps || []).length
-    ? `<div class="card">
-    <div class="ch"><span class="ct"><i class="ti ti-users"></i> CHP Performance Summary</span></div>
-    <div style="overflow-x:auto"><table class="perf-tbl">
-      <thead><tr><th>CHP Code</th><th>Name</th><th>Community Unit</th><th>Referrals</th><th>Attended</th><th>Emergency</th><th>SHA Reg.</th><th>Token Due (KES)</th><th>Status</th></tr></thead>
-      <tbody>${chpRows}</tbody>
-      <tfoot><tr style="background:var(--PXL)">
-        <td colspan="3" style="font-weight:700;color:var(--PD)">TOTALS</td>
-        <td style="text-align:center;font-weight:700">${yRefs.length}</td>
-        <td style="text-align:center;font-weight:700">${totAtt}</td>
-        <td style="text-align:center;font-weight:700">${totEmg}</td>
-        <td style="text-align:center;font-weight:700">${totSha}</td>
-        <td style="text-align:center;font-weight:700">KES ${totTok.toLocaleString()}</td>
-        <td></td>
-      </tr></tfoot>
-    </table></div>
-  </div>`
-    : '';
+  const rows = Object.entries(facGroup).map(([name, g]) => `
+    <tr>
+      <td><strong>${h(name)}</strong></td>
+      <td style="text-align:center">${g.total}</td>
+      <td style="text-align:center">${g.completed}</td>
+      <td style="text-align:center">${g.pending}</td>
+      <td style="text-align:center">${g.emergency}</td>
+    </tr>
+  `).join('');
 
-  // SECTION 4: Period Summary & Sign-Off (matches PDF page 3 exactly)
-  const signoff = `<div class="card">
-    <div class="ch"><span class="ct"><i class="ti ti-clipboard-text"></i> Period Summary, Observations &amp; Sign-Off</span></div>
-    <div class="signoff-box">
-      <div class="signoff-title">Period Summary &amp; Sign-Off</div>
-      <div class="signoff-grid">
-        <div class="sf"><div class="sf-lbl">Total Active CHPs:</div><input type="text" class="sf-line" value="${(f.chps || []).filter(c => c.active == '1' || c.active === true).length}"></div>
-        <div class="sf"><div class="sf-lbl">Data Compiled By:</div><input type="text" class="sf-line" value="${f.compiler || ''}" placeholder="Enter compiler name..."></div>
-        <div class="sf"><div class="sf-lbl">Total Referrals This Period:</div><input type="text" class="sf-line" value="${yRefs.length}"></div>
-        <div class="sf"><div class="sf-lbl">Designation:</div><input type="text" class="sf-line" placeholder="Enter designation..."></div>
-        <div class="sf"><div class="sf-lbl">OPD Attendance Rate:</div><input type="text" class="sf-line" value="${yRefs.length ? Math.round((totAtt / yRefs.length) * 100) + '%' : '-'}"></div>
-        <div class="sf"><div class="sf-lbl">Signature:</div><input type="text" class="sf-line" placeholder="Sign here..."></div>
-        <div class="sf"><div class="sf-lbl">SHA Registration Rate:</div><input type="text" class="sf-line" value="${yRefs.length ? Math.round((totSha / yRefs.length) * 100) + '%' : '-'}"></div>
-        <div class="sf"><div class="sf-lbl">Date of Submission:</div><input type="text" class="sf-line" placeholder="Enter date..."></div>
-        <div class="sf"><div class="sf-lbl">Emergency Cases Escalated:</div><input type="text" class="sf-line" value="${totEmg}"></div>
-        <div class="sf"><div class="sf-lbl">Reviewed By (COIC):</div><input type="text" class="sf-line" value="${f.coic || ''}" placeholder="Enter reviewer name..."></div>
-        <div class="sf"><div class="sf-lbl">Tokens Due for Payment:</div><input type="text" class="sf-line" value="KES ${totTok.toLocaleString()}"></div>
-        <div class="sf"><div class="sf-lbl">Signature:</div><input type="text" class="sf-line" placeholder="Sign here..."></div>
+  return `
+    <div class="card">
+      <div class="ch"><span class="ct"><i class="ti ti-building-hospital"></i> Referrals by Facility Summary - ${rangeStr}</span></div>
+      <div style="overflow-x:auto">
+        <table class="perf-tbl">
+          <thead>
+            <tr><th>Facility Name</th><th>Total Referrals</th><th>Completed</th><th>Pending</th><th>Emergency</th></tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="5" style="text-align:center;color:#888;">No data in this period.</td></tr>'}
+          </tbody>
+        </table>
       </div>
     </div>
-    <div style="font-size:12px;font-weight:600;color:var(--PD);margin-bottom:10px">Key Observations &amp; Action Items</div>
-    <div class="card" style="padding:14px;box-shadow:none;border:1px solid var(--BD)">
-      <div class="obs-list">
-        ${Array.from({ length: 9 }, (_, i) => `<div class="obs-item"><div class="obs-num">${i + 1}</div><input type="text" class="obs-line" placeholder="Enter observation or action item..."></div>`).join('')}
+  `;
+}
+
+function compileCountyReport(refs, rangeStr) {
+  const countyGroup = {};
+  refs.forEach(r => {
+    const county = r.county || 'Not Specified';
+    if (!countyGroup[county]) {
+      countyGroup[county] = { total: 0, completed: 0, pending: 0 };
+    }
+    const g = countyGroup[county];
+    g.total++;
+    const status = r.workflow_status || r.status || 'Submitted';
+    if (status === 'Completed') {
+      g.completed++;
+    } else if (['Submitted', 'Under Review', 'Received', 'In Consultation', 'Admitted'].includes(status)) {
+      g.pending++;
+    }
+  });
+
+  const rows = Object.entries(countyGroup).map(([name, g]) => `
+    <tr>
+      <td><strong>${h(name)}</strong></td>
+      <td style="text-align:center">${g.total}</td>
+      <td style="text-align:center">${g.completed}</td>
+      <td style="text-align:center">${g.pending}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="card">
+      <div class="ch"><span class="ct"><i class="ti ti-map-pin"></i> Referrals by Patient County - ${rangeStr}</span></div>
+      <div style="overflow-x:auto">
+        <table class="perf-tbl">
+          <thead>
+            <tr><th>County</th><th>Total Referrals</th><th>Completed</th><th>Pending</th></tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="4" style="text-align:center;color:#888;">No data in this period.</td></tr>'}
+          </tbody>
+        </table>
       </div>
     </div>
-    <div class="meeting-bar" style="margin-top:14px">
-      <div class="meeting-bar-lbl">Next CHP Coordination Meeting:</div>
-      <div><div style="font-size:10px;color:var(--MU)">Date:</div><input type="text" class="meeting-bar-val" placeholder="e.g. July 15, 2026"></div>
-      <div class="meeting-bar-lbl">Venue:</div>
-      <div><input type="text" class="meeting-bar-val" placeholder="e.g. Siaya Seminar Room"></div>
-      <div class="meeting-bar-lbl">Chairperson:</div>
-      <div><input type="text" class="meeting-bar-val" placeholder="e.g. Dr. A. Ochieng"></div>
-    </div>
-    <div style="margin-top:14px;padding:10px 14px;background:var(--PXL);border-radius:8px;font-size:10px;color:var(--MU);text-align:center;border:1px solid var(--BD)">
-      OHGL-CHP-DASH-${y} &nbsp;|&nbsp; CONFIDENTIAL - OHGL Internal Document &nbsp;|&nbsp; ${f.location} - ${f.name} &nbsp;|&nbsp; Page 3
-    </div>
-  </div>`;
+  `;
+}
 
-  document.getElementById('report-content').innerHTML = repHdr + trendSec + chpSec + signoff;
+function compileOutcomeReport(refs, rangeStr) {
+  const outcomeGroup = {};
+  refs.forEach(r => {
+    const status = r.workflow_status || r.status || 'Submitted';
+    outcomeGroup[status] = (outcomeGroup[status] || 0) + 1;
+  });
+
+  const total = refs.length;
+  const rows = Object.entries(outcomeGroup).map(([status, count]) => {
+    const pct = total ? Math.round((count / total) * 100) : 0;
+    return `
+      <tr>
+        <td><strong>${h(status)}</strong></td>
+        <td style="text-align:center">${count}</td>
+        <td style="text-align:center">${pct}%</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="ch"><span class="ct"><i class="ti ti-chart-pie"></i> Referral Outcomes / Status Breakdown - ${rangeStr}</span></div>
+      <div style="overflow-x:auto">
+        <table class="perf-tbl">
+          <thead>
+            <tr><th>Workflow Status Outcome</th><th>Count</th><th>Percentage</th></tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="3" style="text-align:center;color:#888;">No data in this period.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function compileCompletionReport(refs, rangeStr) {
+  const facGroup = {};
+  refs.forEach(r => {
+    const fName = r.referral_facility || 'Unknown Facility';
+    if (!facGroup[fName]) {
+      facGroup[fName] = { total: 0, completed: 0 };
+    }
+    const g = facGroup[fName];
+    g.total++;
+    const status = r.workflow_status || r.status || 'Submitted';
+    if (status === 'Completed') g.completed++;
+  });
+
+  const rows = Object.entries(facGroup).map(([name, g]) => {
+    const pct = g.total ? Math.round((g.completed / g.total) * 100) : 0;
+    return `
+      <tr>
+        <td><strong>${h(name)}</strong></td>
+        <td style="text-align:center">${g.total}</td>
+        <td style="text-align:center">${g.completed}</td>
+        <td style="text-align:center; font-weight:700; color:var(--T,#00A896);">${pct}%</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="ch"><span class="ct"><i class="ti ti-trending-up"></i> Case Completion Rates by Facility - ${rangeStr}</span></div>
+      <div style="overflow-x:auto">
+        <table class="perf-tbl">
+          <thead>
+            <tr><th>Facility Name</th><th>Total Referrals</th><th>Completed Cases</th><th>Completion Rate</th></tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="4" style="text-align:center;color:#888;">No data in this period.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function compileTrendsReport(refs, rangeStr) {
+  const dateGroup = {};
+  refs.forEach(r => {
+    if (r.date) {
+      dateGroup[r.date] = (dateGroup[r.date] || 0) + 1;
+    }
+  });
+
+  const sortedDates = Object.keys(dateGroup).sort((a, b) => new Date(b) - new Date(a));
+  const rows = sortedDates.map(date => `
+    <tr>
+      <td><strong>${date}</strong></td>
+      <td style="text-align:center">${dateGroup[date]}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="card">
+      <div class="ch"><span class="ct"><i class="ti ti-chart-line"></i> Daily Referral Trends - ${rangeStr}</span></div>
+      <div style="overflow-x:auto">
+        <table class="perf-tbl">
+          <thead>
+            <tr><th>Date</th><th>Referrals Count</th></tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="2" style="text-align:center;color:#888;">No data in this period.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+export function exportReport(format) {
+  if (format === 'pdf') {
+    window.print();
+    return;
+  }
+  
+  const reportType = document.getElementById('r-type')?.value || 'facility';
+  const table = document.querySelector('#report-content table');
+  if (!table) {
+    alert('No report data to export.');
+    return;
+  }
+  
+  let content = '';
+  const rows = Array.from(table.querySelectorAll('tr'));
+  
+  if (format === 'csv') {
+    content = rows.map(r => 
+      Array.from(r.querySelectorAll('th, td'))
+        .map(cell => `"${cell.textContent.replace(/"/g, '""').trim()}"`)
+        .join(',')
+    ).join('\n');
+    
+    downloadFile(content, `OHGL_${reportType}_report.csv`, 'text/csv');
+  } else if (format === 'excel') {
+    // Generate tab-separated values which Excel opens directly
+    content = rows.map(r => 
+      Array.from(r.querySelectorAll('th, td'))
+        .map(cell => cell.textContent.trim())
+        .join('\t')
+    ).join('\n');
+    
+    downloadFile(content, `OHGL_${reportType}_report.xls`, 'application/vnd.ms-excel');
+  }
+}
+
+function downloadFile(content, filename, contentType) {
+  const blob = new Blob([content], { type: contentType + ';charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }

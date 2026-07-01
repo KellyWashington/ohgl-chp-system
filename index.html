@@ -38,7 +38,7 @@
             <div class="input-with-icon">
               <i class="ti ti-lock" aria-hidden="true"></i>
               <input class="fi" id="auth-password" type="password" autocomplete="current-password" placeholder="••••••••" required>
-              <button class="password-toggle-btn" type="button" onclick="togglePasswordVisibility()" aria-label="Toggle Password Visibility">
+              <button class="password-toggle-btn" type="button" onclick="togglePasswordVisibility()" aria-label="Show password" aria-pressed="false">
                 <i class="ti ti-eye" id="password-toggle-icon" aria-hidden="true"></i>
               </button>
             </div>
@@ -81,6 +81,7 @@
 <div class="nav no-print">
   <div class="nt active" id="nav-dashboard" onclick="showPage('dashboard',this)">Dashboard</div>
   <div class="nt" id="nav-new_referral" onclick="showPage('new_referral',this)">New Referral</div>
+  <div class="nt" id="nav-my_referrals" onclick="showPage('my_referrals',this)">My Referrals</div>
   <div class="nt" id="nav-tracker" onclick="showPage('tracker',this)">Referral Tracker</div>
   <div class="nt" id="nav-directory" onclick="showPage('directory',this)">CHP Directory</div>
   <div class="nt" id="nav-report" onclick="showPage('report',this)">Monthly Report</div>
@@ -95,6 +96,21 @@
   <select class="fac-sel" id="fac-sel" onchange="switchFac(this.value)"></select>
   <button class="fac-add-btn" id="add-fac-btn" onclick="openModal('add-fac-modal')"><i class="ti ti-plus"></i> Add facility</button>
   <button class="btn-t btn btn-sm no-print" style="margin-left:10px" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> Export PDF</button>
+  <div class="notif-bell-container no-print" id="notif-bell-container" style="margin-left: auto;">
+    <button class="notif-bell-btn" id="notif-bell-btn" onclick="toggleNotifDropdown()" aria-label="Notifications">
+      <i class="ti ti-bell"></i>
+      <span class="notif-badge" id="notif-unread-count" style="display: none;">0</span>
+    </button>
+    <div class="notif-dropdown" id="notif-dropdown" style="display: none;">
+      <div class="notif-header">
+        <h4>Notifications</h4>
+        <button class="notif-clear-all" onclick="markAllNotificationsAsRead()">Mark all read</button>
+      </div>
+      <div class="notif-list" id="notif-list">
+        <div class="notif-empty"><i class="ti ti-bell-off"></i>No notifications yet.</div>
+      </div>
+    </div>
+  </div>
   <span class="user-chip"><span id="current-user">Signed in</span><button onclick="logout()"><i class="ti ti-logout"></i> Logout</button></span>
 </div>
 
@@ -122,7 +138,7 @@
   <div class="kpi-grid" id="kpi-grid"></div>
 
   <!-- Referrals by Category -->
-  <div class="card">
+  <div class="card" id="dash-card">
     <div class="ch"><span class="ct"><i class="ti ti-chart-donut"></i> Referrals by Category</span></div>
     <div class="cat-grid" id="cat-grid"></div>
   </div>
@@ -131,6 +147,7 @@
 <!--  NEW REFERRAL  -->
 <div id="page-new_referral" class="page">
   <div class="pg-title"><i class="ti ti-clipboard-plus"></i> New Referral</div>
+  <div class="pg-sub">CHP submission for Facility Officer review and completion</div>
   <div id="ref-alert"></div>
   <div class="slip" id="live-slip">
     <div class="slip-hdr">
@@ -140,96 +157,60 @@
           <div class="slip-tagline">Together for Better</div>
         </div>
       </div>
-      <div class="slip-title">COMMUNITY HEALTH PROMOTER REFERRAL SLIP</div>
-      <div class="slip-hdr-r" id="slip-hdr-r">Oasis Doctors Siaya Limited<br>siaya@oasishealthcaregroup.com</div>
+      <div class="slip-title">COMMUNITY HEALTH PROMOTER REFERRAL</div>
+      <div class="slip-hdr-r" id="slip-hdr-r">Oasis Healthcare Group</div>
     </div>
     <div class="slip-no-row">
-      <span>Slip No: <span class="slip-no" id="slip-no-display">ODS-REF-____</span></span>
-      <span class="slip-date">Date: <input type="date" id="f-date" style="border:none;border-bottom:1px solid var(--BD);font-size:12px;font-family:'Inter',sans-serif;background:transparent"></span>
+      <span>Referral No: <span class="slip-no" id="slip-no-display">OHGL-____-______</span></span>
+      <span class="slip-date">Date Submitted: <input type="date" id="f-date" style="border:none;border-bottom:1px solid var(--BD);font-size:12px;font-family:'Inter',sans-serif;background:transparent"></span>
     </div>
+
+    <div class="form-section-title">Patient Information</div>
     <div class="slip-fields">
-      <div class="slip-field">
-        <label>Community Health Promoter (CHP) Name</label>
-        <select id="f-chp" onchange="autofillCHP()" style="border:none;border-bottom:1px solid var(--BD);border-radius:0;padding:4px 2px;font-size:12px;background:transparent;font-family:'Inter',sans-serif">
-          <option value="">Select CHP...</option>
-        </select>
-      </div>
-      <div class="slip-field">
-        <label>Community Unit</label>
-        <input id="f-unit" readonly placeholder="Auto-filled">
-      </div>
-      <div class="slip-field full">
-        <label>Patient Full Name</label>
-        <input id="f-patient" placeholder="Enter patient full name">
-      </div>
-      <div class="slip-field">
-        <label>Age (Yrs)</label>
-        <input id="f-age" type="number" min="0" max="120" placeholder="0">
-      </div>
-      <div class="slip-field">
-        <label>Sex</label>
-        <select id="f-sex" style="border:none;border-bottom:1px solid var(--BD);border-radius:0;padding:4px 2px;font-size:12px;background:transparent;font-family:'Inter',sans-serif">
-          <option value="">-</option><option value="M">M [ ]</option><option value="F">F [ ]</option>
-        </select>
-      </div>
+      <div class="slip-field full"><label>Full Name</label><input id="f-patient" placeholder="Patient full name"></div>
+      <div class="slip-field"><label>National ID Number</label><input id="f-national-id" inputmode="numeric" placeholder="National ID"></div>
+      <div class="slip-field"><label>Phone</label><input id="f-phone" inputmode="tel" placeholder="07... or +254..."></div>
+      <div class="slip-field"><label>Gender</label><select id="f-sex"><option value="">Select...</option><option value="M">Male</option><option value="F">Female</option><option value="Other">Other</option></select></div>
+      <div class="slip-field"><label>Age</label><input id="f-age" type="number" min="0" max="120" placeholder="Years"></div>
+      <div class="slip-field"><label>County</label><input id="f-county" placeholder="County"></div>
+      <div class="slip-field"><label>Sub County</label><input id="f-subcounty" placeholder="Sub county"></div>
+      <div class="slip-field"><label>Village</label><input id="f-village" placeholder="Village"></div>
     </div>
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--MU);margin-bottom:5px">Referral Category</div>
-    <div class="slip-cats">
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="Maternal Care"> Maternal Care</label>
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="Child Health"> Child Health</label>
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="Outpatient/OPD"> Outpatient/OPD</label>
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="NCD Screening"> NCD Screening</label>
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="Emergency"> Emergency</label>
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="Mental Health"> Mental Health</label>
-      <label class="slip-cat-cb"><input type="checkbox" name="f-cat" value="Other"> Other</label>
+
+    <div class="form-section-title">Clinical Information</div>
+    <div class="slip-fields">
+      <div class="slip-field full"><label>Chief Complaint</label><textarea id="f-complaint" rows="2" placeholder="Main complaint..."></textarea></div>
+      <div class="slip-field full"><label>Referral Reason</label><textarea id="f-reason" rows="2" placeholder="Why the patient is being referred..."></textarea></div>
+      <div class="slip-field full"><label>Clinical Notes</label><textarea id="f-notes" rows="3" placeholder="Relevant observations, vital signs, or context..."></textarea></div>
     </div>
-    <div class="slip-field full" style="margin-bottom:8px">
-      <label>Presenting Concern / Chief Complaint</label>
-      <textarea id="f-complaint" rows="2" placeholder="Chief complaint..."></textarea>
-    </div>
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--MU);margin-bottom:5px">Priority Level</div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-      <div class="priority-row" style="flex:1;margin-bottom:0">
-        <div class="pri-btn routine" onclick="selectPri(this,'Routine')" id="pri-routine">[ ] ROUTINE</div>
-        <div class="pri-btn urgent" onclick="selectPri(this,'Urgent')" id="pri-urgent">[ ] URGENT</div>
-        <div class="pri-btn emergency" onclick="selectPri(this,'Emergency')" id="pri-emergency">[ ] EMERGENCY</div>
-      </div>
-      <div class="slip-sha">SHA Registered:
-        <label><input type="radio" name="f-sha" value="Yes"> Yes</label>
-        <label><input type="radio" name="f-sha" value="No"> No</label>
-      </div>
-    </div>
-    <div class="slip-field full" style="margin-bottom:8px">
-      <label>Clinical Notes / CHP Observations (Vital Signs, Findings)</label>
-      <textarea id="f-notes" rows="2" placeholder="BP, temperature, findings..."></textarea>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--BD);padding-top:8px;font-size:11px;gap:14px">
-      <div style="flex:1">
-        <div style="font-size:10px;font-weight:600;color:var(--MU);margin-bottom:3px">CHP Signature / Thumbprint:</div>
-        <div style="border-bottom:1px solid var(--BD);min-height:28px"></div>
-        <div style="font-size:10px;color:var(--MU);margin-top:4px">CHP Name (print): <span style="border-bottom:1px solid var(--BD);display:inline-block;min-width:140px"></span></div>
-      </div>
-      <div class="opd-section" style="flex:1">
-        <div class="opd-title">OPD Receiving Section (Facility Use Only)</div>
-        <div class="opd-fields">
-          <div class="slip-field"><label>Received By</label><input id="f-received-by" placeholder="Name"></div>
-          <div class="slip-field"><label>Time</label><input id="f-time" type="time"></div>
-          <div class="slip-field"><label>OPD Status</label>
-            <select id="f-opd-status" style="border:none;border-bottom:1px solid var(--BD);border-radius:0;padding:4px 2px;font-size:12px;background:transparent;font-family:'Inter',sans-serif">
-              <option value="Pending">Pending</option><option value="Attended">Attended</option><option value="DNA">DNA</option>
-            </select>
-          </div>
-        </div>
-        <div style="display:flex;gap:12px;margin-top:5px;font-size:10px;flex-wrap:wrap">
-          <span>File No: <input style="border:none;border-bottom:1px solid var(--BD);width:80px;font-size:11px" id="f-fileno"></span>
-          <span>SHA No: <input style="border:none;border-bottom:1px solid var(--BD);width:80px;font-size:11px" id="f-shano"></span>
-        </div>
-      </div>
+
+    <div class="form-section-title">Destination</div>
+    <div class="slip-fields">
+      <div class="slip-field"><label>Referral Facility</label><select id="f-dest-facility"></select></div>
+      <div class="slip-field"><label>Department</label><input id="f-department" placeholder="OPD, MCH, Emergency, etc."></div>
     </div>
   </div>
   <div class="btn-row">
     <button class="btn btn-s" onclick="clearSlipForm()"><i class="ti ti-refresh"></i> Clear</button>
-    <button class="btn btn-p" onclick="submitReferral()"><i class="ti ti-check"></i> Submit Referral</button>
+    <button class="btn btn-p" onclick="submitReferral()"><i class="ti ti-send"></i> Submit Referral</button>
+  </div>
+</div>
+
+<!--  MY REFERRALS  -->
+<div id="page-my_referrals" class="page">
+  <div class="pg-title"><i class="ti ti-notes"></i> My Referrals</div>
+  <div class="pg-sub">Track referrals from submission through facility completion.</div>
+  <div class="card">
+    <div class="ch">
+      <span class="ct"><i class="ti ti-list-search"></i> Referral Worklist</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">
+        <input class="fi" id="my-search" placeholder="Search referral, patient, ID, facility..." style="padding:6px 10px;font-size:12px;width:260px" oninput="renderMyReferrals(1)">
+        <select class="fi" id="my-status" onchange="renderMyReferrals(1)" style="padding:6px 10px;font-size:12px;width:160px">
+          <option value="">All statuses</option><option>Submitted</option><option>Under Review</option><option>Received</option><option>In Consultation</option><option>Admitted</option><option>Completed</option><option>Closed</option><option>Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div id="my-referrals-content"></div>
   </div>
 </div>
 
@@ -242,10 +223,18 @@
     <div class="ch">
       <span class="ct"><i class="ti ti-table"></i> Referral Register - <span id="tracker-fac-name" style="color:var(--T)">-</span></span>
       <div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">
-        <input class="fi" id="t-search" placeholder="Search patient or CHP..." style="padding:6px 10px;font-size:12px;width:180px" oninput="renderTracker()">
+        <input class="fi" id="t-search" placeholder="Search patient, slip, CHP, file, SHA..." style="padding:6px 10px;font-size:12px;width:240px" oninput="renderTracker()">
         <select class="fi" id="t-status" onchange="renderTracker()" style="padding:6px 10px;font-size:12px;width:120px">
-          <option value="">All statuses</option><option>Attended</option><option>Pending</option><option>DNA</option>
+          <option value="">All statuses</option><option>Submitted</option><option>Under Review</option><option>Received</option><option>In Consultation</option><option>Admitted</option><option>Completed</option><option>Closed</option><option>Cancelled</option>
         </select>
+        <select class="fi" id="t-priority" onchange="renderTracker()" style="padding:6px 10px;font-size:12px;width:130px">
+          <option value="">All priorities</option><option>Routine</option><option>Urgent</option><option>Emergency</option>
+        </select>
+        <select class="fi" id="t-sha" onchange="renderTracker()" style="padding:6px 10px;font-size:12px;width:110px">
+          <option value="">All SHA</option><option value="Yes">SHA Yes</option><option value="No">SHA No</option>
+        </select>
+        <input class="fi" id="t-from" type="date" title="From date" onchange="renderTracker()" style="padding:6px 10px;font-size:12px;width:140px">
+        <input class="fi" id="t-to" type="date" title="To date" onchange="renderTracker()" style="padding:6px 10px;font-size:12px;width:140px">
       </div>
     </div>
     <div class="reg-wrap" id="tracker-tbl"></div>
@@ -265,12 +254,59 @@
 
 <!--  MONTHLY REPORT  -->
 <div id="page-report" class="page">
-  <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px" class="no-print">
-    <span style="font-size:12px;font-weight:600;color:var(--MU)">Report year:</span>
-    <select class="fi" id="r-year" onchange="renderReport()" style="width:auto;padding:6px 10px;font-size:12px">
-      <option>2026</option><option>2027</option><option>2028</option>
-    </select>
-    <button class="btn btn-t btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Print / Save as PDF</button>
+  <div class="card no-print" style="margin-bottom: 16px;">
+    <div class="ch"><span class="ct"><i class="ti ti-filter"></i> Report Configuration</span></div>
+    <div style="padding: 15px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+      <div class="fg" style="margin: 0; min-width: 150px;">
+        <label class="fl" style="font-size: 11px;">Report Type</label>
+        <select class="fi" id="r-type" onchange="renderReport()" style="padding: 6px 10px; font-size: 12px;">
+          <option value="facility">Referrals by Facility</option>
+          <option value="county">Referrals by County</option>
+          <option value="outcome">Referral Outcomes</option>
+          <option value="completion">Completion Rates</option>
+          <option value="trends">Referral Trends</option>
+        </select>
+      </div>
+      <div class="fg" style="margin: 0; min-width: 130px;">
+        <label class="fl" style="font-size: 11px;">Date Filter</label>
+        <select class="fi" id="r-filter-type" onchange="onReportFilterTypeChange()" style="padding: 6px 10px; font-size: 12px;">
+          <option value="daily">Daily (Today)</option>
+          <option value="weekly">Weekly (Last 7 Days)</option>
+          <option value="monthly" selected>Monthly (Selected Month)</option>
+          <option value="custom">Custom Date Range</option>
+        </select>
+      </div>
+      <div id="r-month-select-container" class="fg" style="margin: 0; min-width: 120px;">
+        <label class="fl" style="font-size: 11px;">Month</label>
+        <select class="fi" id="r-month" onchange="renderReport()" style="padding: 6px 10px; font-size: 12px;">
+          <option value="1" selected>January</option><option value="2">February</option><option value="3">March</option>
+          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+      <div class="fg" style="margin: 0; min-width: 80px;">
+        <label class="fl" style="font-size: 11px;">Year</label>
+        <select class="fi" id="r-year" onchange="renderReport()" style="padding: 6px 10px; font-size: 12px;">
+          <option selected>2026</option><option>2027</option><option>2028</option>
+        </select>
+      </div>
+      <div id="r-custom-dates" style="display: none; gap: 10px;">
+        <div class="fg" style="margin: 0; min-width: 130px;">
+          <label class="fl" style="font-size: 11px;">Start Date</label>
+          <input class="fi" type="date" id="r-start-date" onchange="renderReport()" style="padding: 5px 10px; font-size: 12px;">
+        </div>
+        <div class="fg" style="margin: 0; min-width: 130px;">
+          <label class="fl" style="font-size: 11px;">End Date</label>
+          <input class="fi" type="date" id="r-end-date" onchange="renderReport()" style="padding: 5px 10px; font-size: 12px;">
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-p btn-sm" onclick="exportReport('pdf')"><i class="ti ti-file-type-pdf"></i> PDF</button>
+        <button class="btn btn-s btn-sm" onclick="exportReport('excel')"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+        <button class="btn btn-s btn-sm" onclick="exportReport('csv')"><i class="ti ti-file-text"></i> CSV</button>
+      </div>
+    </div>
   </div>
   <div id="report-content"></div>
 </div>

@@ -3,6 +3,8 @@ import { fetchUserProfile, writeAuditLog } from './dataService.js';
 import { sanitizeText } from '../utils/sanitize.js';
 import { hasPerm, getAllowedPages, getDefaultPage, getRoleLabel, renderAccessDenied } from './rbac.js';
 import { currentUser, currentProfile, setCurrentUser, setCurrentProfile, DB, setDB } from './state.js';
+import { checkRateLimit } from '../utils/rateLimiter.js';
+
 
 // We import UI orchestrators from main.js (circular imports are resolved post-load in ESM)
 import { showAuth, refreshDB, authAlert, showPage } from '../main.js';
@@ -27,12 +29,19 @@ function showLockedAccess(message) {
 export function applyPermissionsUI() {
   if (!currentProfile) return;
   const allowed = new Set(getAllowedPages(currentProfile));
-  ['dashboard', 'new_referral', 'tracker', 'directory', 'report', 'group', 'settings', 'audit'].forEach(pageId => {
+  ['dashboard', 'new_referral', 'my_referrals', 'tracker', 'directory', 'report', 'group', 'settings', 'audit'].forEach(pageId => {
     setNavVisibility(pageId, allowed.has(pageId));
   });
   setNavVisibility('dashboard', true);
   const addFacilityBtn = document.getElementById('add-fac-btn');
   if (addFacilityBtn) addFacilityBtn.style.display = hasPerm('facility:manage') ? "block" : "none";
+  
+  const isSuper = currentProfile?.role === 'super_admin';
+  const facSel = document.getElementById('fac-sel');
+  const facLbl = document.querySelector('.fac-bar-lbl');
+  if (facSel) facSel.style.display = isSuper ? "inline-block" : "none";
+  if (facLbl) facLbl.style.display = isSuper ? "inline-block" : "none";
+
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', "");
   if (activePage && !allowed.has(activePage)) {
     const fallback = getDefaultPage(currentProfile);
@@ -102,6 +111,12 @@ export async function bootstrapSession(session) {
 
 export async function login(e) {
   e.preventDefault();
+  
+  if (!checkRateLimit('login', 5, 60000)) {
+    authAlert('Too many login attempts. Please wait 1 minute before trying again.');
+    return;
+  }
+
   const btn = document.getElementById('auth-submit-btn');
   const btnText = document.getElementById('auth-btn-text');
   const spinner = document.getElementById('auth-btn-spinner');
