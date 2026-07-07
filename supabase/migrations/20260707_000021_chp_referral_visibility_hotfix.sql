@@ -1,5 +1,5 @@
--- 003_views.sql
--- Deploys secure views that handle PHI decryption for authorized users
+-- 20260707_000021_chp_referral_visibility_hotfix.sql
+-- OCHP security hotfix: CHPs may only read referrals they created.
 
 CREATE OR REPLACE FUNCTION can_read_referral(p_facility_id uuid, p_created_by uuid)
 RETURNS boolean
@@ -31,6 +31,22 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION can_read_referral(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION can_read_referral(uuid, uuid) TO authenticated;
+
+DROP POLICY IF EXISTS referrals_select ON referrals;
+CREATE POLICY referrals_select ON referrals
+  FOR SELECT USING (public.can_read_referral(facility_id, created_by));
+
+DROP POLICY IF EXISTS events_select ON referral_status_events;
+CREATE POLICY events_select ON referral_status_events
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM referrals r
+      WHERE r.id = referral_id
+        AND public.can_read_referral(r.facility_id, r.created_by)
+    )
+  );
+
 CREATE OR REPLACE VIEW referrals_secure WITH (security_invoker = true) AS
 SELECT
   r.id,
@@ -58,7 +74,7 @@ SELECT
   r.referral_facility_id,
   r.referral_facility_name,
   r.department,
-  r.opd_status as workflow_status, -- compatibility alias
+  r.opd_status as workflow_status,
   r.opd_status,
   r.received_by,
   r.file_no,
@@ -80,22 +96,16 @@ LEFT JOIN users creator ON creator.id = r.created_by
 LEFT JOIN users updater ON updater.id = r.updated_by
 WHERE public.can_read_referral(r.facility_id, r.created_by);
 
-CREATE OR REPLACE VIEW chp_directory_secure WITH (security_invoker = true) AS
-SELECT
-  c.id,
-  c.facility_id,
-  c.user_id,
-  c.code,
-  pgp_sym_decrypt(c.full_name_ciphertext, current_setting('app.encryption_key', true)) as full_name,
-  pgp_sym_decrypt(c.national_id_ciphertext, current_setting('app.encryption_key', true)) as national_id,
-  pgp_sym_decrypt(c.phone_ciphertext, current_setting('app.encryption_key', true)) as phone,
-  c.village,
-  c.community_unit,
-  c.sha_trained,
-  c.jumuisha_enrolled,
-  c.active,
-  c.notes,
-  c.created_at,
-  c.updated_at
-FROM chp_directory c
-WHERE public.same_facility(c.facility_id);
+CREATE OR REPLACE VIEW dashboard_metrics WITH (security_invoker = true) AS
+SELECT facility_id, date_trunc('month', referral_date)::date as month,
+  count(*) as total_referrals,
+  count(*) filter (where opd_status='Attended') as attended,
+  count(*) filter (where opd_status='Pending') as pending,
+  count(*) filter (where priority='Emergency') as emergencies,
+  count(*) filter (where sha_registered) as sha_registered
+FROM referrals
+WHERE public.can_read_referral(facility_id, created_by)
+GROUP BY facility_id, date_trunc('month', referral_date);
+
+GRANT SELECT ON referrals_secure TO authenticated;
+GRANT SELECT ON dashboard_metrics TO authenticated;

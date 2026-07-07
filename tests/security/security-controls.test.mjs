@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const iam = readFileSync('supabase/migrations/20260704_000009_iam_secure_rpcs.sql', 'utf8');
 const rls = readFileSync('supabase/migrations/20260705_000010_iam_rls_hardening.sql', 'utf8');
 const workflow = readFileSync('supabase/migrations/20260705_000015_referral_workflow_command_engine.sql', 'utf8');
+const referralVisibility = readFileSync('supabase/migrations/20260707_000021_chp_referral_visibility_hotfix.sql', 'utf8');
 
 test('secure IAM RPCs require super admin and reasons for controlled actions', () => {
   assert.match(iam, /assert_super_admin/);
@@ -34,4 +35,13 @@ test('workflow payload validation covers missing department, reason, outcome, an
   assert.match(workflow, /Reason is required for this referral action/);
   assert.match(workflow, /Outcome is required before completing a referral/);
   assert.match(workflow, /An active referral already exists for this patient identifier/);
+});
+
+test('CHP referral visibility is enforced by shared RLS/view predicate', () => {
+  assert.match(referralVisibility, /CREATE OR REPLACE FUNCTION can_read_referral/);
+  assert.match(referralVisibility, /role_name = 'chp'[\s\S]*p_created_by = auth\.uid\(\)/);
+  assert.match(referralVisibility, /CREATE POLICY referrals_select[\s\S]*public\.can_read_referral\(facility_id, created_by\)/);
+  assert.match(referralVisibility, /CREATE OR REPLACE VIEW referrals_secure[\s\S]*WHERE public\.can_read_referral\(r\.facility_id, r\.created_by\)/);
+  assert.match(referralVisibility, /CREATE OR REPLACE VIEW dashboard_metrics[\s\S]*WHERE public\.can_read_referral\(facility_id, created_by\)/);
+  assert.doesNotMatch(referralVisibility, /chp_id in/i);
 });

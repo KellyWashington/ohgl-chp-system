@@ -2,7 +2,7 @@ import { DB, fac, currentProfile } from '../services/state.js';
 import { ensurePageAccess } from '../services/rbac.js';
 import { createReferralRecord } from '../services/dataService.js';
 import { audit } from '../services/authService.js';
-import { sanitizeText } from '../utils/sanitize.js';
+import { h, sanitizeText } from '../utils/sanitize.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { messaging } from '../services/messagingService.js';
 import { integrations } from '../services/integrationService.js';
@@ -24,12 +24,40 @@ function setVal(id, value) {
   if (el) el.value = value;
 }
 
-function makeReferralNumber(f) {
-  const year = new Date().getFullYear();
-  const sameYear = (f.referrals || []).filter(r => String(r.id || '').startsWith(`OHGL-${year}-`)).length;
-  return `OHGL-${year}-${String(sameYear + 1).padStart(6, '0')}`;
-}
 
+function showReferralSuccessModal({ slipNo, submittedAt, receivingFacility }) {
+  const modal = document.getElementById('referral-success-modal');
+  const details = document.getElementById('referral-success-details');
+  if (!modal || !details) return false;
+
+  details.innerHTML = `
+    <div class="ref-success-card">
+      <div class="ref-success-number">${h(slipNo)}</div>
+      <div class="ref-success-grid">
+        <div><span>Submission Date</span><strong>${h(submittedAt)}</strong></div>
+        <div><span>Receiving Facility</span><strong>${h(receivingFacility)}</strong></div>
+      </div>
+    </div>`;
+
+  const viewBtn = document.getElementById('ref-success-view-my');
+  const anotherBtn = document.getElementById('ref-success-create-another');
+  if (viewBtn) {
+    viewBtn.onclick = () => {
+      modal.classList.remove('open');
+      showPage('my_referrals', document.getElementById('nav-my_referrals'));
+      window.scrollTo(0, 0);
+    };
+  }
+  if (anotherBtn) {
+    anotherBtn.onclick = () => {
+      modal.classList.remove('open');
+      showPage('new_referral', document.getElementById('nav-new_referral'));
+      window.scrollTo(0, 0);
+    };
+  }
+  modal.classList.add('open');
+  return true;
+}
 function validateReferral(form, f) {
   const errors = [];
   const required = [
@@ -67,7 +95,7 @@ export function initSlip() {
   const f = fac();
   if (!f) return;
   document.getElementById('slip-hdr-r').innerHTML = f.location + ' - ' + f.name + '<br>' + (f.email || '');
-  document.getElementById('slip-no-display').textContent = makeReferralNumber(f);
+  document.getElementById('slip-no-display').textContent = 'Assigned on submit';
   if (!val('f-date')) document.getElementById('f-date').valueAsDate = new Date();
 
   const facSel = document.getElementById('f-dest-facility');
@@ -130,10 +158,9 @@ export async function submitReferral() {
   }
 
   if (!f.referrals) f.referrals = [];
-  const referralNo = makeReferralNumber(f);
   const selectedFacility = (DB.facilities || []).find(x => x.id === form.facilityId) || f;
   const slip = {
-    id: referralNo,
+    id: null,
     facility_id: form.facilityId,
     date: form.date,
     patient: form.patient,
@@ -160,7 +187,6 @@ export async function submitReferral() {
 
   const payload = {
     facility_id: form.facilityId,
-    slip_no: referralNo,
     referral_date: form.date,
     patient_name: form.patient,
     national_id: form.nationalId,
@@ -187,22 +213,23 @@ export async function submitReferral() {
 
   // Future-Ready Integration Sync (non-blocking)
   integrations.syncToSHA(payload).catch(err => console.error('[SHA Sync Error]', err));
-  messaging.send('sms', payload.phone, `Oasis Health: Referral ${data.slip_no || referralNo} has been successfully submitted to ${payload.referral_facility_name}.`).catch(err => console.error('[SMS Sync Error]', err));
+  const generatedSlipNo = data.slip_no;
+  messaging.send('sms', payload.phone, `Oasis Health: Referral ${generatedSlipNo} has been successfully submitted to ${payload.referral_facility_name}.`).catch(err => console.error('[SMS Sync Error]', err));
 
 
   slip.db_id = data.id;
-  slip.id = data.slip_no || referralNo;
+  slip.id = generatedSlipNo;
   f.referrals.push(slip);
   await audit('create', 'referrals', data.id, { slip_no: slip.id });
   clearSlipForm();
   await refreshDB();
-  showPage('my_referrals', document.getElementById('nav-my_referrals'));
-  const myAlert = document.getElementById('my-referrals-alert');
-  if (myAlert) {
-    myAlert.innerHTML = `<div class="alert alert-s"><i class="ti ti-circle-check"></i> Referral <strong>${slip.id}</strong> submitted successfully.</div>`;
-    setTimeout(() => {
-      myAlert.innerHTML = '';
-    }, 5000);
+  const shown = showReferralSuccessModal({
+    slipNo: slip.id,
+    submittedAt: new Date(data.created_at || slip.created).toLocaleString(),
+    receivingFacility: payload.referral_facility_name,
+  });
+  if (!shown) {
+    alertBox(`Referral <strong>${h(slip.id)}</strong> submitted successfully.`, 'alert-s');
   }
   window.scrollTo(0, 0);
 }

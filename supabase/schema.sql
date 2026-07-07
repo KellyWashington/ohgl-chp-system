@@ -276,6 +276,33 @@ begin
   return '*' = any(perms) or required = any(perms) or exists (select 1 from unnest(perms) as p where right(p, 2) = ':*' and required like left(p, length(p) - 1) || '%');
 end; $;
 
+create or replace function can_read_referral(p_facility_id uuid, p_created_by uuid)
+returns boolean
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+declare
+  role_name text := public.normalized_user_role();
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  if role_name = 'super_admin' then
+    return true;
+  end if;
+
+  if role_name = 'chp' then
+    return p_created_by = auth.uid()
+      and public.has_permission('referral:read_own');
+  end if;
+
+  return public.same_facility(p_facility_id)
+    and public.has_permission('referral:read');
+end;
+$$;
 create or replace function is_super_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select public.normalized_user_role() = 'super_admin'
@@ -292,7 +319,7 @@ select facility_id, date_trunc('month', referral_date)::date as month,
   count(*) filter (where priority='Emergency') as emergencies,
   count(*) filter (where sha_registered) as sha_registered
 from referrals
-where same_facility(facility_id)
+where public.can_read_referral(facility_id, created_by)
 group by facility_id, date_trunc('month', referral_date);
 alter table facilities enable row level security;
 alter table users enable row level security;
@@ -314,7 +341,7 @@ create policy patients_write on patients for all using (same_facility(facility_i
 create policy chp_select on chp_directory for select using (same_facility(facility_id) and (has_permission('chp:read') or has_permission('facility:manage')));
 create policy chp_write on chp_directory for all using (same_facility(facility_id) and has_permission('chp:create')) with check (same_facility(facility_id) and has_permission('chp:create'));
 
-create policy referrals_select on referrals for select using (same_facility(facility_id) and (has_permission('referral:read') or (has_permission('referral:read_own') and (created_by = auth.uid() or chp_id in (select id from chp_directory where user_id = auth.uid())))));
+create policy referrals_select on referrals for select using (public.can_read_referral(facility_id, created_by));
 create policy referrals_insert on referrals for insert with check (same_facility(facility_id) and has_permission('referral:create'));
 create policy referrals_update on referrals for update using (same_facility(facility_id) and has_permission('referral:update')) with check (same_facility(facility_id) and has_permission('referral:update'));
 create policy referrals_delete on referrals for delete using (same_facility(facility_id) and has_permission('referral:delete'));
@@ -396,6 +423,7 @@ end; $$;
 
 -- Supabase API grants. RLS still decides which rows each authenticated user can access.
 grant usage on schema public to authenticated;
+grant execute on function can_read_referral(uuid, uuid) to authenticated;
 grant select on facilities, users, dashboard_metrics, chp_directory_secure, referrals_secure, audit_logs, data_subject_requests to authenticated;
 grant insert, update, delete on facilities, patients, referrals, chp_directory, appointments, data_subject_requests to authenticated;
 grant insert on audit_logs to authenticated;

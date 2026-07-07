@@ -1890,3 +1890,41 @@ textarea.fi {
   margin-bottom: 6px;
   text-transform: uppercase;
 }
+
+.ref-success-card {
+  border: 1px solid var(--BD);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 18px;
+  background: #f8fafc;
+}
+.ref-success-number {
+  font-family: monospace;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--P);
+  margin-bottom: 14px;
+}
+.ref-success-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.ref-success-grid span {
+  display: block;
+  color: var(--MU);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.ref-success-grid strong {
+  display: block;
+  color: var(--INK);
+  font-size: 13px;
+}
+@media (max-width: 640px) {
+  .ref-success-grid {
+    grid-template-columns: 1fr;
+  }
+}
