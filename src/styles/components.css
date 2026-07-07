@@ -2022,3 +2022,174 @@ textarea.fi {
     justify-content: center;
   }
 }
+/* UNSAVED CHANGES GUARD */
+.unsaved-modal-wrap.open .unsaved-modal {
+  animation: modalPop 0.18s ease-out;
+}
+.unsaved-modal {
+  max-width: 560px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.unsaved-modal-header {
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  border-bottom-color: #fed7aa;
+}
+.unsaved-modal-header h3 {
+  color: #7c2d12;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.unsaved-modal-header i {
+  color: #d97706;
+  font-size: 20px;
+}
+.unsaved-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--PD);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 14px;
+}
+.unsaved-brand img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+.unsaved-message {
+  margin: 0 0 8px;
+  color: var(--TX);
+  font-size: 18px;
+  font-weight: 800;
+}
+.unsaved-detail,
+.unsaved-prompt {
+  margin: 0 0 10px;
+  color: var(--MU);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.unsaved-prompt {
+  color: var(--TX);
+  font-weight: 600;
+}
+.unsaved-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.unsaved-actions .btn {
+  justify-content: center;
+}
+#unsaved-save.is-busy::before {
+  content: '';
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(107, 63, 160, 0.22);
+  border-top-color: var(--P);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@media (max-width: 640px) {
+  .unsaved-actions {
+    align-items: stretch;
+  }
+  .unsaved-actions .btn {
+    width: 100%;
+  }
+}
+
+/* PLATFORM FORM FRAMEWORK */
+.platform-dialog-wrap.open .platform-dialog,
+.platform-success-wrap.open .platform-success {
+  animation: modalPop 0.18s ease-out;
+}
+.platform-dialog,
+.platform-success {
+  max-width: 560px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.platform-dialog-header {
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  border-bottom-color: #fed7aa;
+}
+.platform-dialog-header h3,
+.platform-success-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.platform-dialog-header h3 { color: #7c2d12; }
+.platform-dialog-header i { color: #d97706; font-size: 20px; }
+.platform-dialog-message,
+.platform-success-summary {
+  margin: 0 0 10px;
+  color: var(--TX);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.platform-dialog-detail {
+  margin: 0;
+  color: var(--MU);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.platform-dialog-actions,
+.platform-success-actions {
+  flex-wrap: wrap;
+}
+.platform-success-header {
+  background: linear-gradient(135deg, #ecfdf5, #ffffff);
+  border-bottom-color: #bbf7d0;
+}
+.platform-success-header h3,
+.platform-success-header i { color: #065f46; }
+.platform-success-body { text-align: center; }
+.platform-success-metadata { text-align: left; margin-top: 14px; }
+.toast-host {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.platform-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--BD);
+  box-shadow: 0 12px 28px rgba(26, 26, 46, 0.18);
+  color: var(--TX);
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: auto;
+}
+.platform-toast.show { opacity: 1; transform: translateY(0); }
+.platform-toast-success { border-color: #86efac; color: #065f46; }
+.platform-toast-warning { border-color: #fcd34d; color: #92400e; }
+.platform-toast-error { border-color: #fecaca; color: #991b1b; }
+.platform-toast-info { border-color: var(--BDM); color: var(--PD); }
+.btn.is-loading { cursor: wait; opacity: 0.86; }
+.btn.is-success { box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.14); }
+.btn.is-error { box-shadow: 0 0 0 3px rgba(153, 27, 27, 0.14); }
+@media (max-width: 640px) {
+  .platform-dialog-actions .btn,
+  .platform-success-actions .btn { width: 100%; justify-content: center; }
+  .toast-host { right: 16px; bottom: 16px; }
+}

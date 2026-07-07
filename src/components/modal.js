@@ -15,6 +15,7 @@ document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
   const openModals = Array.from(document.querySelectorAll('.mwrap.open'));
   const topModal = openModals.at(-1);
+  if (['unsaved-changes-modal', 'platform-confirmation-modal', 'platform-success-modal'].includes(topModal?.id)) return;
   if (topModal?.id) {
     topModal.classList.remove('open');
     event.preventDefault();

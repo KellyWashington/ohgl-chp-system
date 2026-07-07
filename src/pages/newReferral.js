@@ -7,12 +7,20 @@ import { checkRateLimit } from '../utils/rateLimiter.js';
 import { messaging } from '../services/messagingService.js';
 import { integrations } from '../services/integrationService.js';
 import { showPage, refreshDB } from '../main.js';
+import { registerUnsavedChangesGuard } from '../services/unsavedChangesGuard.js';
+import { FormManager } from '../services/formManager.js';
+import { DraftEngine } from '../services/draftEngine.js';
+import { LoadingManager } from '../services/loadingManager.js';
+import { Toast } from '../services/toast.js';
+import { SuccessModal } from '../components/successModal.js';
 
+const FORM_ID = 'new-referral';
 const ACTIVE_STATUSES = ['Submitted', 'Under Review', 'Received', 'In Consultation', 'Admitted'];
 const DRAFT_PREFIX = 'ochp_referral_draft:';
 const BROWSER_ID_KEY = 'ochp_referral_browser_id';
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTOSAVE_MS = 30000;
+const DIRTY_DEBOUNCE_MS = 2000;
 const FORM_FIELD_IDS = [
   'f-patient', 'f-national-id', 'f-phone', 'f-age', 'f-county', 'f-subcounty', 'f-village',
   'f-complaint', 'f-reason', 'f-notes', 'f-department', 'f-priority', 'f-sex', 'f-dest-facility', 'f-date'
@@ -22,6 +30,10 @@ let isSubmittingReferral = false;
 let autosaveTimer = null;
 let draftListenersReady = false;
 let draftPromptedForUser = null;
+let draftChangeTimer = null;
+let guardRegistered = false;
+let draftProviderRegistered = false;
+let referralForm = null;
 let lastDraftFingerprint = '';
 let suppressDraftSave = false;
 let lastFocusedBeforeModal = null;
@@ -46,19 +58,8 @@ function focusPatientName() {
   });
 }
 
-function showToast(message) {
-  let toast = document.getElementById('ref-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'ref-toast';
-    toast.className = 'toast';
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    document.body.appendChild(toast);
-  }
-  toast.textContent = message;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+function showToast(message, kind = 'info') {
+  Toast.show(message, { kind });
 }
 
 function getBrowserId() {
@@ -136,18 +137,122 @@ function draftFingerprint(data) {
   return JSON.stringify(data || {});
 }
 
+function markReferralClean(data = readCurrentForm()) {
+  lastDraftFingerprint = draftFingerprint(data);
+  referralForm?.markClean(data);
+}
+
+function hasUnsavedReferralChanges() {
+  if (referralForm) return referralForm.isDirty();
+  const data = readCurrentForm();
+  if (!hasMeaningfulDraftData(data)) return false;
+  return draftFingerprint(data) !== lastDraftFingerprint;
+}
+
+function scheduleDraftWrite(force = false) {
+  referralForm?.setDirty();
+  if (force) writeDraft(true);
+  else referralForm?.scheduleAutosave();
+}
+
+function saveDraftForGuard() {
+  return referralForm?.autosave(true) || writeDraft(true);
+}
+
+function discardReferralForGuard() {
+  return referralForm?.discard() || (clearReferralDraft(), resetReferralForm({ preserveFacility: true }));
+}
+
+function registerReferralGuard() {
+  if (guardRegistered) return;
+  registerUnsavedChangesGuard({
+    formId: FORM_ID,
+    isDirty: hasUnsavedReferralChanges,
+    saveDraft: saveDraftForGuard,
+    discard: discardReferralForGuard,
+    markClean: () => markReferralClean(),
+    copy: {
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes.',
+      detail: 'Leaving this page may cause patient information to be lost.',
+      prompt: 'Choose how you would like to continue.',
+      stayLabel: 'Stay Here',
+      leaveLabel: 'Leave Without Saving',
+      saveLabel: 'Save Draft & Leave',
+    },
+    logoutCopy: {
+      title: 'Unsaved Referral',
+      message: 'You have an unsaved referral.',
+      detail: 'Would you like to save it before signing out?',
+      stayLabel: 'Stay Logged In',
+      leaveLabel: 'Logout Without Saving',
+      saveLabel: 'Save Draft & Logout',
+    },
+  });
+  guardRegistered = true;
+}
+
+function registerReferralFramework() {
+  if (!draftProviderRegistered) {
+    DraftEngine.register({
+      formId: FORM_ID,
+      userId: () => currentUser?.id,
+      browserId: getBrowserId,
+      expireAfter: DRAFT_TTL_MS,
+      save: data => {
+        const key = draftKey();
+        if (!key || !currentUser?.id) return false;
+        localStorage.setItem(key, JSON.stringify({
+          userId: currentUser.id,
+          browserId: getBrowserId(),
+          savedAt: Date.now(),
+          expiresAt: Date.now() + DRAFT_TTL_MS,
+          data,
+        }));
+        return true;
+      },
+      load: () => readDraft(),
+      clear: () => clearReferralDraft(),
+    });
+    draftProviderRegistered = true;
+  }
+
+  if (!referralForm) {
+    referralForm = FormManager.register({
+      formId: FORM_ID,
+      getValues: readCurrentForm,
+      ignoredDirtyKeys: ['date', 'facilityId', 'priority'],
+      autosaveMs: AUTOSAVE_MS,
+      autosaveDebounceMs: DIRTY_DEBOUNCE_MS,
+      autosave: data => {
+        if (!hasMeaningfulDraftData(data)) {
+          clearReferralDraft();
+          return true;
+        }
+        return DraftEngine.save(FORM_ID, data);
+      },
+      clearDraft: () => DraftEngine.clear(FORM_ID),
+      discard: () => {
+        clearReferralDraft();
+        resetReferralForm({ preserveFacility: true });
+      },
+    });
+  }
+
+  return referralForm;
+}
 function writeDraft(force = false) {
-  if (suppressDraftSave || isSubmittingReferral || !currentUser?.id) return;
+  if (suppressDraftSave || isSubmittingReferral || !currentUser?.id) return false;
   const key = draftKey();
-  if (!key) return;
+  if (!key) return false;
   const data = readCurrentForm();
   if (!hasMeaningfulDraftData(data)) {
     clearReferralDraft();
-    return;
+    markReferralClean(data);
+    return true;
   }
   const fingerprint = draftFingerprint(data);
-  if (!force && fingerprint === lastDraftFingerprint) return;
-  lastDraftFingerprint = fingerprint;
+  if (!force && fingerprint === lastDraftFingerprint) return true;
   try {
     localStorage.setItem(key, JSON.stringify({
       userId: currentUser.id,
@@ -156,8 +261,11 @@ function writeDraft(force = false) {
       expiresAt: Date.now() + DRAFT_TTL_MS,
       data,
     }));
+    markReferralClean(data);
+    return true;
   } catch (err) {
     console.warn('Referral draft could not be saved', err);
+    throw new Error('Referral draft could not be saved. Please try again.');
   }
 }
 
@@ -213,7 +321,7 @@ function applyDraft(data) {
   if (data.facilityId) setVal('f-dest-facility', data.facilityId);
   if (data.date) setVal('f-date', data.date);
   suppressDraftSave = false;
-  lastDraftFingerprint = draftFingerprint(readCurrentForm());
+  markReferralClean();
 }
 
 function closeModalById(id) {
@@ -259,35 +367,29 @@ function maybePromptDraftRecovery() {
 }
 
 function attachDraftListeners() {
-  if (draftListenersReady) return;
-  draftListenersReady = true;
+  if (!draftListenersReady) {
+    draftListenersReady = true;
   FORM_FIELD_IDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('input', () => writeDraft(false));
-    el.addEventListener('change', () => writeDraft(true));
+    el.addEventListener('input', () => scheduleDraftWrite(false));
+    el.addEventListener('change', () => scheduleDraftWrite(true));
   });
-  autosaveTimer = setInterval(() => writeDraft(false), AUTOSAVE_MS);
+  }
+  referralForm?.startAutosave();
 }
 
 function resetSubmitButton() {
   const btn = document.getElementById('submit-referral-btn');
-  const text = document.getElementById('submit-referral-text');
-  const spinner = document.getElementById('submit-referral-spinner');
-  if (btn) btn.disabled = false;
-  if (text) text.textContent = 'Submit Referral';
-  if (spinner) spinner.style.display = 'none';
+  LoadingManager.button.setIdle(btn, 'Submit Referral');
   isSubmittingReferral = false;
 }
 
 function setReferralSubmitting(loading) {
   const btn = document.getElementById('submit-referral-btn');
-  const text = document.getElementById('submit-referral-text');
-  const spinner = document.getElementById('submit-referral-spinner');
   isSubmittingReferral = loading;
-  if (btn) btn.disabled = loading;
-  if (text) text.textContent = loading ? 'Submitting Referral...' : 'Submit Referral';
-  if (spinner) spinner.style.display = loading ? 'inline-block' : 'none';
+  if (loading) LoadingManager.button.setLoading(btn, 'Submitting Referral...');
+  else LoadingManager.button.setIdle(btn, 'Submit Referral');
 }
 
 function resetReferralForm({ preserveFacility = true, focus = false, toast = '' } = {}) {
@@ -307,54 +409,44 @@ function resetReferralForm({ preserveFacility = true, focus = false, toast = '' 
   const slipNo = document.getElementById('slip-no-display');
   if (slipNo) slipNo.textContent = 'Assigned on submit';
   resetSubmitButton();
-  lastDraftFingerprint = '';
   suppressDraftSave = false;
+  markReferralClean();
   if (focus) focusPatientName();
   if (toast) showToast(toast);
 }
 
 function showReferralSuccessModal({ slipNo, submittedAt, receivingFacility, priority, status, submittedBy }) {
-  const modal = document.getElementById('referral-success-modal');
-  const details = document.getElementById('referral-success-details');
-  if (!modal || !details) return false;
-
-  details.innerHTML = `
-    <div class="success-hero" aria-hidden="true"><i class="ti ti-circle-check"></i></div>
-    <div class="success-copy">
-      <h2>Referral Submitted Successfully</h2>
-      <p>The referral has been successfully submitted to the receiving facility.</p>
-    </div>
-    <div class="ref-success-card" aria-label="Referral summary">
-      <div><span>Referral Number</span><strong class="ref-success-number">${h(slipNo)}</strong></div>
-      <div><span>Submission Date & Time</span><strong>${h(submittedAt)}</strong></div>
-      <div><span>Receiving Facility</span><strong>${h(receivingFacility)}</strong></div>
-      <div><span>Priority</span><strong>${h(priority)}</strong></div>
-      <div><span>Referral Status</span><strong>${h(status)}</strong></div>
-      <div><span>Submitted By</span><strong>${h(submittedBy)}</strong></div>
-    </div>`;
-
-  const viewBtn = document.getElementById('ref-success-view-my');
-  const anotherBtn = document.getElementById('ref-success-create-another');
-  const closeBtn = document.getElementById('ref-success-close');
-  if (viewBtn) {
-    viewBtn.onclick = () => {
-      closeModalById('referral-success-modal');
-      showPage('my_referrals', document.getElementById('nav-my_referrals'));
-      window.scrollTo(0, 0);
-    };
-  }
-  if (anotherBtn) {
-    anotherBtn.onclick = () => {
-      closeModalById('referral-success-modal');
-      resetReferralForm({ preserveFacility: true, focus: true, toast: 'Ready for a new referral.' });
-      showPage('new_referral', document.getElementById('nav-new_referral'));
-    };
-  }
-  if (closeBtn) closeBtn.onclick = () => closeModalById('referral-success-modal');
-  lastFocusedBeforeModal = document.activeElement;
-  modal.classList.add('open');
-  requestAnimationFrame(() => viewBtn?.focus());
-  return true;
+  return SuccessModal.show({
+    title: 'Referral Submitted Successfully',
+    icon: 'ti-circle-check',
+    summary: 'The referral has been successfully submitted to the receiving facility.',
+    status,
+    metadata: {
+      'Referral Number': slipNo,
+      'Submission Date & Time': submittedAt,
+      'Receiving Facility': receivingFacility,
+      Priority: priority,
+      'Submitted By': submittedBy,
+    },
+    actions: [
+      {
+        label: 'Create Another Referral',
+        kind: 'secondary',
+        onClick: () => {
+          resetReferralForm({ preserveFacility: true, focus: true, toast: 'Ready for a new referral.' });
+          showPage('new_referral', document.getElementById('nav-new_referral'));
+        },
+      },
+      {
+        label: 'View My Referrals',
+        kind: 'primary',
+        onClick: () => {
+          showPage('my_referrals', document.getElementById('nav-my_referrals'));
+          window.scrollTo(0, 0);
+        },
+      },
+    ],
+  });
 }
 
 function validateReferral(form, f) {
@@ -390,6 +482,8 @@ function validateReferral(form, f) {
 }
 
 export function initSlip() {
+  registerReferralFramework();
+  registerReferralGuard();
   if (!ensurePageAccess('new_referral', 'ref-alert')) return;
   const f = fac();
   if (!f) return;
@@ -404,6 +498,7 @@ export function initSlip() {
       .map(x => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${x.location} - ${x.name}</option>`)
       .join('');
   }
+  markReferralClean();
   attachDraftListeners();
   purgeExpiredAndForeignDrafts();
   maybePromptDraftRecovery();
@@ -415,10 +510,14 @@ export function clearReferralPrivateState({ clearCurrentDraft = false, resetProm
   suppressDraftSave = false;
   if (clearCurrentDraft) clearReferralStorageForUser();
   if (resetPrompt) draftPromptedForUser = null;
+  if (draftChangeTimer) {
+    clearTimeout(draftChangeTimer);
+    draftChangeTimer = null;
+  }
+  referralForm?.stopAutosave();
   if (autosaveTimer) {
     clearInterval(autosaveTimer);
     autosaveTimer = null;
-    draftListenersReady = false;
   }
 }
 

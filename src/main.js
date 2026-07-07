@@ -7,6 +7,7 @@ import { canAccessPage, getDefaultPage, renderAccessDenied } from './services/rb
 import { DB, setDB, currentUser, currentProfile, setCurrentUser, setCurrentProfile, fac } from './services/state.js';
 import { login, register, resetPassword, logout, bootstrapSession, applyPermissionsUI, setAuthMode } from './services/authService.js';
 import { toggleNotifDropdown, refreshNotifications, markNotificationAsRead, markAllNotificationsAsRead } from './services/notificationService.js';
+import { confirmNavigation, installUnsavedChangesGuard } from './services/unsavedChangesGuard.js';
 
 
 // Page modules
@@ -134,7 +135,13 @@ function buildFacSel() {
   }
 }
 
-export function switchFac(id) {
+export async function switchFac(id) {
+  const previousId = DB.activeFacId;
+  if (!(await confirmNavigation({ type: 'navigation', target: 'facility' }))) {
+    const sel = document.getElementById('fac-sel');
+    if (sel) sel.value = previousId || '';
+    return;
+  }
   const newDB = { ...DB, activeFacId: id };
   setDB(newDB);
   sessionStorage.setItem('ohgl_active_facility', id);
@@ -153,15 +160,9 @@ export function updateHeader() {
   buildFacSel();
 }
 
-export function showPage(id, el) {
-  if (window.hasUnsavedReferralChanges && window.hasUnsavedReferralChanges()) {
-    if (!confirm('You have unsaved referral changes. Are you sure you want to discard them and leave?')) {
-      return;
-    }
-    if (window.clearUnsavedReferralChanges) {
-      window.clearUnsavedReferralChanges();
-    }
-  }
+export async function showPage(id, el) {
+  const activeId = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (activeId && activeId !== id && !(await confirmNavigation({ type: 'navigation', target: id }))) return;
 
   if (!canAccessPage(id)) {
     const fallback = getDefaultPage();
@@ -236,6 +237,7 @@ async function load() {
 }
 
 installInnerHTMLSanitizer();
+installUnsavedChangesGuard();
 load().catch(err => authAlert(err.message || 'Startup failed'));
 
 sb?.auth.onAuthStateChange((_event, session) => {

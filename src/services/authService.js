@@ -4,6 +4,7 @@ import { h, sanitizeText } from '../utils/sanitize.js';
 import { hasPerm, getAllowedPages, getDefaultPage, getRoleLabel, renderAccessDenied } from './rbac.js';
 import { currentUser, currentProfile, setCurrentUser, setCurrentProfile, DB, setDB } from './state.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
+import { confirmNavigation } from './unsavedChangesGuard.js';
 
 
 // We import UI orchestrators from main.js (circular imports are resolved post-load in ESM)
@@ -333,6 +334,7 @@ export async function resetPassword() {
 }
 
 export async function logout() {
+  if (!(await confirmNavigation({ type: 'logout' }))) return;
   window.clearReferralPrivateState?.({ clearCurrentDraft: true, resetPrompt: true });
   if (sb && currentUser) await audit('logout', 'auth.users', currentUser.id, {});
   await sb?.auth.signOut();

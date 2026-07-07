@@ -486,6 +486,62 @@
     </div>
   </div>
 </div>
+
+<!-- UNSAVED CHANGES GUARD MODAL -->
+<div class="mwrap unsaved-modal-wrap" id="unsaved-changes-modal" role="dialog" aria-modal="true" aria-labelledby="unsaved-title" aria-describedby="unsaved-message unsaved-detail unsaved-prompt">
+  <div class="modal unsaved-modal" role="document">
+    <div class="mhdr unsaved-modal-header">
+      <h3 id="unsaved-title"><i class="ti ti-alert-triangle" id="unsaved-icon" aria-hidden="true"></i> Unsaved Changes</h3>
+    </div>
+    <div class="mbody unsaved-modal-body">
+      <div class="unsaved-brand">
+        <img src="./src/assets/logo.png" alt="Oasis Health">
+        <span>Oasis Healthcare Group</span>
+      </div>
+      <p class="unsaved-message" id="unsaved-message">You have unsaved changes.</p>
+      <p class="unsaved-detail" id="unsaved-detail">Leaving this page may cause patient information to be lost.</p>
+      <p class="unsaved-prompt" id="unsaved-prompt">Choose how you would like to continue.</p>
+      <div class="btn-row unsaved-actions">
+        <button class="btn btn-p" type="button" id="unsaved-stay">Stay Here</button>
+        <button class="btn btn-s" type="button" id="unsaved-save">Save Draft &amp; Leave</button>
+        <button class="btn btn-d" type="button" id="unsaved-leave">Leave Without Saving</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLATFORM CONFIRMATION MODAL -->
+<div class="mwrap platform-dialog-wrap" id="platform-confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="platform-confirm-title" aria-describedby="platform-confirm-message platform-confirm-detail">
+  <div class="modal platform-dialog" role="document">
+    <div class="mhdr platform-dialog-header">
+      <h3 id="platform-confirm-title"><i class="ti ti-alert-triangle" id="platform-confirm-icon" aria-hidden="true"></i> Confirm Action</h3>
+    </div>
+    <div class="mbody platform-dialog-body">
+      <p class="platform-dialog-message" id="platform-confirm-message">Please confirm this action.</p>
+      <p class="platform-dialog-detail" id="platform-confirm-detail"></p>
+      <div class="btn-row platform-dialog-actions">
+        <button class="btn btn-s" type="button" id="platform-confirm-cancel">Cancel</button>
+        <button class="btn btn-p" type="button" id="platform-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLATFORM SUCCESS MODAL -->
+<div class="mwrap platform-success-wrap" id="platform-success-modal" role="dialog" aria-modal="true" aria-labelledby="platform-success-title" aria-describedby="platform-success-summary">
+  <div class="modal platform-success" role="document">
+    <div class="mhdr platform-success-header">
+      <h3 id="platform-success-title"><i class="ti ti-circle-check" id="platform-success-icon" aria-hidden="true"></i> Success</h3>
+    </div>
+    <div class="mbody platform-success-body">
+      <div class="success-hero" aria-hidden="true"><i class="ti ti-circle-check"></i></div>
+      <p class="platform-success-summary" id="platform-success-summary">The action completed successfully.</p>
+      <span class="bdg bdg-g" id="platform-success-status" style="display:none"></span>
+      <div class="ref-success-card platform-success-metadata" id="platform-success-metadata" style="display:none"></div>
+      <div class="btn-row success-actions" id="platform-success-actions"></div>
+    </div>
+  </div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
