@@ -11,7 +11,7 @@ import { toggleNotifDropdown, refreshNotifications, markNotificationAsRead, mark
 
 // Page modules
 import { renderDash } from './pages/dashboard.js';
-import { initSlip, clearSlipForm, submitReferral } from './pages/newReferral.js';
+import { initSlip, clearSlipForm, submitReferral, clearReferralPrivateState } from './pages/newReferral.js';
 import { renderTracker, updRef, delRef, executeReferralWorkflowAction } from './pages/tracker.js';
 import { renderMyReferrals } from './pages/myReferrals.js';
 import { renderDir, openAddCHP, openEditCHP, saveCHP, delCHP } from './pages/directory.js';
@@ -239,10 +239,14 @@ installInnerHTMLSanitizer();
 load().catch(err => authAlert(err.message || 'Startup failed'));
 
 sb?.auth.onAuthStateChange((_event, session) => {
+  if (session?.user?.id && currentUser?.id && session.user.id !== currentUser.id) {
+    clearReferralPrivateState({ clearCurrentDraft: true, resetPrompt: true });
+  }
   if (session && !currentUser) {
     bootstrapSession(session).catch(err => authAlert(err.message));
   }
   if (!session) {
+    clearReferralPrivateState({ clearCurrentDraft: true, resetPrompt: true });
     setCurrentUser(null);
     setCurrentProfile(null);
     setDB({ facilities: [], activeFacId: null });
@@ -263,6 +267,7 @@ Object.assign(window, {
   renderDash,
   clearSlipForm,
   submitReferral,
+  clearReferralPrivateState,
   renderTracker,
   renderMyReferrals,
   openAddCHP,

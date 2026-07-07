@@ -30,7 +30,7 @@ test('dashboard and reports retain referral status aggregation paths', () => {
 
 
 test('referral slip numbers are database generated only', () => {
-  const referralPayload = newReferral.match(/const payload = \{[\s\S]*?\n  \};/)[0];
+  const referralPayload = newReferral.match(/const payload = \{[\s\S]*?createReferralRecord/)[0];
   assert.doesNotMatch(referralPayload, /slip_no:\\s*/);
   assert.doesNotMatch(newReferral, /makeReferralNumber/);
   assert.match(workflowMigration, /CREATE OR REPLACE FUNCTION next_referral_slip_no/);
@@ -47,4 +47,35 @@ test('referral creation shows success modal with follow-up actions', () => {
   assert.match(newReferral, /showReferralSuccessModal/);
   assert.match(newReferral, /slipNo: slip\.id/);
   assert.doesNotMatch(newReferral, /my-referrals-alert/);
+});
+test('referral submission prevents double clicks and avoids full data reload on success', () => {
+  assert.match(indexHtml, /id="submit-referral-btn"/);
+  assert.match(indexHtml, /submit-referral-spinner/);
+  assert.match(newReferral, /isSubmittingReferral/);
+  assert.match(newReferral, /setReferralSubmitting\(true\)/);
+  assert.match(newReferral, /Submitting Referral\.\.\./);
+  const successBlock = newReferral.match(/clearReferralDraft\(\);[\s\S]*?showReferralSuccessModal/)[0];
+  assert.doesNotMatch(successBlock, /refreshDB\(/);
+});
+
+test('referral draft recovery is user and browser scoped', () => {
+  assert.match(indexHtml, /id="referral-draft-modal"/);
+  assert.match(indexHtml, /Resume Draft/);
+  assert.match(indexHtml, /Discard Draft/);
+  assert.match(indexHtml, /Start New Referral/);
+  assert.match(newReferral, /DRAFT_TTL_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(newReferral, /DRAFT_PREFIX/);
+  assert.match(newReferral, /browserId/);
+  assert.match(newReferral, /userId: currentUser\.id/);
+  assert.match(newReferral, /draft\.userId !== currentUser\?\.id/);
+  assert.match(newReferral, /draft\.browserId !== getBrowserId\(\)/);
+});
+
+test('referral private state is cleared during auth lifecycle changes', () => {
+  const main = readFileSync('src/main.js', 'utf8');
+  const auth = readFileSync('src/services/authService.js', 'utf8');
+  assert.match(main, /clearReferralPrivateState\(\{ clearCurrentDraft: true, resetPrompt: true \}\)/);
+  assert.match(auth, /window\.clearReferralPrivateState\?\.\(\{ clearCurrentDraft: true, resetPrompt: true \}\)/);
+  assert.match(newReferral, /clearReferralStorageForUser/);
+  assert.match(newReferral, /sessionStorage/);
 });

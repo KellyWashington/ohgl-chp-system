@@ -144,6 +144,11 @@ export async function audit(action, tableName, recordId, changes = {}) {
 }
 
 export async function bootstrapSession(session) {
+  if (currentUser?.id && currentUser.id !== session.user.id) {
+    window.clearReferralPrivateState?.({ clearCurrentDraft: true, resetPrompt: true });
+  } else {
+    window.clearReferralPrivateState?.({ resetPrompt: true });
+  }
   setCurrentUser(session.user);
   const { data: profile, error: profileErr } = await fetchUserProfile(session.user.id);
   if (profileErr) throw profileErr;
@@ -191,6 +196,7 @@ export async function bootstrapSession(session) {
 
   try {
     await refreshDB();
+    showPage(defaultPage, defaultNav);
   } catch (err) {
     console.error('Background data load failed after login', err);
     showLockedAccess('You are signed in, but the application data could not be loaded yet. Please refresh or contact support if this persists.');
@@ -327,6 +333,7 @@ export async function resetPassword() {
 }
 
 export async function logout() {
+  window.clearReferralPrivateState?.({ clearCurrentDraft: true, resetPrompt: true });
   if (sb && currentUser) await audit('logout', 'auth.users', currentUser.id, {});
   await sb?.auth.signOut();
   setCurrentUser(null);

@@ -212,12 +212,13 @@
     <div class="form-section-title">Destination</div>
     <div class="slip-fields">
       <div class="slip-field"><label>Referral Facility</label><select id="f-dest-facility"></select></div>
+      <div class="slip-field"><label>Priority</label><select id="f-priority"><option value="Routine">Routine</option><option value="Urgent">Urgent</option><option value="Emergency">Emergency</option></select></div>
       <div class="slip-field"><label>Department</label><input id="f-department" placeholder="OPD, MCH, Emergency, etc."></div>
     </div>
   </div>
   <div class="btn-row">
     <button class="btn btn-s" onclick="clearSlipForm()"><i class="ti ti-refresh"></i> Clear</button>
-    <button class="btn btn-p" onclick="submitReferral()"><i class="ti ti-send"></i> Submit Referral</button>
+    <button class="btn btn-p" id="submit-referral-btn" onclick="submitReferral()" aria-live="polite"><span class="spinner" id="submit-referral-spinner" style="display:none"></span><i class="ti ti-send"></i> <span id="submit-referral-text">Submit Referral</span></button>
   </div>
 </div>
 
@@ -456,15 +457,31 @@
 
 
 <!-- REFERRAL SUCCESS MODAL -->
-<div class="mwrap" id="referral-success-modal">
-  <div class="modal">
-    <div class="mhdr"><h3><i class="ti ti-circle-check" style="color:var(--T)"></i> &nbsp;Referral submitted</h3>
-      <button class="btn btn-s btn-sm" onclick="closeModal('referral-success-modal')"><i class="ti ti-x"></i></button></div>
+<div class="mwrap success-modal-wrap" id="referral-success-modal" role="dialog" aria-modal="true" aria-labelledby="ref-success-title">
+  <div class="modal success-modal">
+    <div class="mhdr success-modal-header"><h3 id="ref-success-title"><i class="ti ti-circle-check" aria-hidden="true"></i> Referral Submitted Successfully</h3>
+      <button class="btn btn-s btn-sm" id="ref-success-close" aria-label="Close success modal"><i class="ti ti-x" aria-hidden="true"></i></button></div>
     <div class="mbody">
       <div id="referral-success-details"></div>
+      <div class="btn-row success-actions">
+        <button class="btn btn-s" id="ref-success-create-another"><i class="ti ti-plus" aria-hidden="true"></i> Create Another Referral</button>
+        <button class="btn btn-p" id="ref-success-view-my"><i class="ti ti-notes" aria-hidden="true"></i> View My Referrals</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REFERRAL DRAFT RECOVERY MODAL -->
+<div class="mwrap" id="referral-draft-modal" role="dialog" aria-modal="true" aria-labelledby="ref-draft-title">
+  <div class="modal">
+    <div class="mhdr"><h3 id="ref-draft-title"><i class="ti ti-file-pencil" style="color:var(--T)" aria-hidden="true"></i> Resume saved referral draft?</h3></div>
+    <div class="mbody">
+      <div class="alert alert-i">A saved draft was found for this signed-in CHP on this browser.</div>
+      <div id="referral-draft-details"></div>
       <div class="btn-row">
-        <button class="btn btn-s" id="ref-success-create-another"><i class="ti ti-plus"></i> Create Another Referral</button>
-        <button class="btn btn-p" id="ref-success-view-my"><i class="ti ti-notes"></i> View My Referrals</button>
+        <button class="btn btn-s" id="ref-draft-discard"><i class="ti ti-trash" aria-hidden="true"></i> Discard Draft</button>
+        <button class="btn btn-s" id="ref-draft-start"><i class="ti ti-plus" aria-hidden="true"></i> Start New Referral</button>
+        <button class="btn btn-p" id="ref-draft-resume"><i class="ti ti-restore" aria-hidden="true"></i> Resume Draft</button>
       </div>
     </div>
   </div>

@@ -1,7 +1,22 @@
 export function openModal(id) {
-  document.getElementById(id).classList.add('open');
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.add('open');
+  const focusTarget = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (focusTarget) focusTarget.focus();
 }
 
 export function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('open');
 }
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const openModals = Array.from(document.querySelectorAll('.mwrap.open'));
+  const topModal = openModals.at(-1);
+  if (topModal?.id) {
+    topModal.classList.remove('open');
+    event.preventDefault();
+  }
+});
