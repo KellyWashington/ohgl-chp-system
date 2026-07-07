@@ -96,11 +96,54 @@ export function renderReport() {
   document.getElementById('report-content').innerHTML = reportHtml;
 }
 
+function facilityNameFor(referral) {
+  const byReferralFacility = DB.facilities.find(f => f.id === referral.referral_facility_id);
+  const byOriginFacility = DB.facilities.find(f => f.id === referral.facility_id);
+  return referral.referral_facility || byReferralFacility?.name || byOriginFacility?.name || 'Unknown Facility';
+}
+
+function referralOutcome(referral) {
+  return referral.referral_outcome || referral.opd_status || referral.workflow_status || referral.status || 'Submitted';
+}
+
+function detailedReferralRows(refs) {
+  return refs.map(r => `
+    <tr>
+      <td>${h(r.id || '')}</td>
+      <td>${h(r.patient || 'Patient')}</td>
+      <td>${h(r.created_by_name || r.chp_code || '')}</td>
+      <td>${h(facilityNameFor(r))}</td>
+      <td>${h(r.department || '')}</td>
+      <td>${h(r.priority || '')}</td>
+      <td>${h(r.workflow_status || r.status || '')}</td>
+      <td>${h(r.date || '')}</td>
+      <td>${h(referralOutcome(r))}</td>
+    </tr>
+  `).join('');
+}
+
+function detailedReferralTable(refs) {
+  return `
+    <div class="card" style="margin-top:16px">
+      <div class="ch"><span class="ct"><i class="ti ti-list-details"></i> Detailed Referral Register</span></div>
+      <div style="overflow-x:auto">
+        <table class="perf-tbl report-detail-tbl">
+          <thead>
+            <tr><th>Referral No.</th><th>Patient</th><th>CHP</th><th>Facility</th><th>Department</th><th>Priority</th><th>Status</th><th>Submission Date</th><th>Outcome</th></tr>
+          </thead>
+          <tbody>
+            ${refs.length ? detailedReferralRows(refs) : '<tr><td colspan="9" style="text-align:center;color:#888;">No detailed referrals in this period.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
 function compileFacilityReport(refs, rangeStr) {
   const facGroup = {};
   
   refs.forEach(r => {
-    const fName = r.referral_facility || 'Unknown Facility';
+    const fName = facilityNameFor(r);
     if (!facGroup[fName]) {
       facGroup[fName] = { total: 0, completed: 0, pending: 0, emergency: 0 };
     }
@@ -141,7 +184,7 @@ function compileFacilityReport(refs, rangeStr) {
         </table>
       </div>
     </div>
-  `;
+  ` + detailedReferralTable(refs);
 }
 
 function compileCountyReport(refs, rangeStr) {
@@ -226,7 +269,7 @@ function compileOutcomeReport(refs, rangeStr) {
 function compileCompletionReport(refs, rangeStr) {
   const facGroup = {};
   refs.forEach(r => {
-    const fName = r.referral_facility || 'Unknown Facility';
+    const fName = facilityNameFor(r);
     if (!facGroup[fName]) {
       facGroup[fName] = { total: 0, completed: 0 };
     }
@@ -305,18 +348,21 @@ export function exportReport(format) {
   }
   
   const reportType = document.getElementById('r-type')?.value || 'facility';
-  const table = document.querySelector('#report-content table');
-  if (!table) {
+  const tables = Array.from(document.querySelectorAll('#report-content table'));
+  if (!tables.length) {
     alert('No report data to export.');
     return;
   }
   
   let content = '';
-  const rows = Array.from(table.querySelectorAll('tr'));
+  const rows = tables.flatMap((table, index) => {
+    const tableRows = Array.from(table.querySelectorAll('tr'));
+    return index === 0 ? tableRows : [null, ...tableRows];
+  });
   
   if (format === 'csv') {
     content = rows.map(r => 
-      Array.from(r.querySelectorAll('th, td'))
+      r === null ? '' : Array.from(r.querySelectorAll('th, td'))
         .map(cell => `"${cell.textContent.replace(/"/g, '""').trim()}"`)
         .join(',')
     ).join('\n');
@@ -325,7 +371,7 @@ export function exportReport(format) {
   } else if (format === 'excel') {
     // Generate tab-separated values which Excel opens directly
     content = rows.map(r => 
-      Array.from(r.querySelectorAll('th, td'))
+      r === null ? '' : Array.from(r.querySelectorAll('th, td'))
         .map(cell => cell.textContent.trim())
         .join('\t')
     ).join('\n');

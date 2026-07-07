@@ -42,6 +42,11 @@ function alertBox(message, kind = 'alert-e') {
   document.getElementById('ref-alert').innerHTML = `<div class="alert ${kind}"><i class="ti ${kind === 'alert-s' ? 'ti-circle-check' : 'ti-alert-circle'}"></i> ${message}</div>`;
 }
 
+function clearAlert() {
+  const alertEl = document.getElementById('ref-alert');
+  if (alertEl) alertEl.innerHTML = '';
+}
+
 function val(id) {
   return document.getElementById(id)?.value?.trim() || '';
 }
@@ -451,6 +456,9 @@ function showReferralSuccessModal({ slipNo, submittedAt, receivingFacility, prio
 
 function validateReferral(form, f) {
   const errors = [];
+  if (!DB.facilities?.length) {
+    errors.push('No referral destination facilities are available. Ask an administrator to verify facility access and active facilities.');
+  }
   const required = [
     ['patient', 'Full name'],
     ['nationalId', 'National ID number'],
@@ -493,10 +501,21 @@ export function initSlip() {
 
   const facSel = document.getElementById('f-dest-facility');
   if (facSel) {
-    const selected = facSel.value || f.id;
-    facSel.innerHTML = (DB.facilities || [])
-      .map(x => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${x.location} - ${x.name}</option>`)
-      .join('');
+    const activeFacilities = (DB.facilities || []).filter(x => x?.id && x.active !== false);
+    const selected = activeFacilities.some(x => x.id === facSel.value)
+      ? facSel.value
+      : (activeFacilities.find(x => x.id === f.id)?.id || activeFacilities[0]?.id || '');
+    facSel.innerHTML = activeFacilities.length
+      ? activeFacilities
+        .map(x => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${x.location} - ${x.name}</option>`)
+        .join('')
+      : '<option value="">No active facilities available</option>';
+    facSel.disabled = !activeFacilities.length;
+    if (!activeFacilities.length) {
+      alertBox('No referral destination facilities are available. Ask an administrator to verify active facilities and facility access.', 'alert-e');
+    } else {
+      clearAlert();
+    }
   }
   markReferralClean();
   attachDraftListeners();

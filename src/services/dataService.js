@@ -1,12 +1,22 @@
 import { sb } from './supabaseClient.js';
 
-export function fetchCoreData() {
-  return Promise.all([
-    sb.from('facilities').select('*').order('location'),
+export async function fetchCoreData() {
+  const facilities = await fetchReferralFacilities();
+  const [chps, refs, coverageAreas] = await Promise.all([
     sb.from('chp_directory_secure').select('*').order('code'),
     sb.from('referrals_secure').select('*').order('created_at', { ascending: true }),
     sb.from('coverage_areas').select('*').order('sub_location'),
   ]);
+  return [facilities, chps, refs, coverageAreas];
+}
+
+export async function fetchReferralFacilities() {
+  const secure = await sb.rpc('list_referral_facilities_secure');
+  if (!secure.error) return secure;
+  const missingRpc = /function .*list_referral_facilities_secure|could not find|schema cache/i.test(secure.error.message || '');
+  if (!missingRpc) return secure;
+  const fallback = await sb.from('facilities').select('*').order('location');
+  return { ...fallback, error: fallback.error ? fallback.error : { message: 'Secure facility lookup RPC is not deployed; using RLS-limited facility fallback.' } };
 }
 
 export function fetchUserProfile(userId) {
@@ -72,7 +82,8 @@ export function writeAuditLog({ actorId, action, tableName, recordId, facilityId
 }
 
 export function createReferralRecord(payload) {
-  return sb.rpc('create_referral_secure', { payload });
+  const { slip_no: _slipNo, slipNo: _slipNoCamel, ...safePayload } = payload || {};
+  return sb.rpc('create_referral_secure', { payload: safePayload });
 }
 
 

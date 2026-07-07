@@ -39,9 +39,12 @@ export async function refreshDB() {
     { data: coverageAreas, error: coverageErr },
   ] = await fetchCoreData();
   
-  if (facErr || chpErr || refErr || coverageErr) throw facErr || chpErr || refErr || coverageErr;
+  if (chpErr || refErr || coverageErr) throw chpErr || refErr || coverageErr;
+  if (facErr && !(facilities || []).length) throw facErr;
+  if (facErr) console.warn('Facility lookup warning', facErr.message || facErr);
   
   const newFacilities = (facilities || []).map(makeFac);
+  const facilityLookup = new Map(newFacilities.map(f => [f.id, f]));
   newFacilities.forEach(f => {
     f.chps = (chps || [])
       .filter(c => c.facility_id === f.id)
@@ -96,8 +99,8 @@ export async function refreshDB() {
         complaint: r.presenting_concern,
         notes: r.clinical_notes,
         referral_reason: r.referral_reason,
-        referral_facility: r.referral_facility_name || r.referral_facility,
-        referral_facility_id: r.referral_facility_id,
+        referral_facility: r.referral_facility_name || facilityLookup.get(r.referral_facility_id)?.name || facilityLookup.get(r.facility_id)?.name || r.referral_facility || 'Unknown Facility',
+        referral_facility_id: r.referral_facility_id || r.facility_id,
         department: r.department,
         workflow_status: r.workflow_status || r.referral_status || r.opd_status || 'Submitted',
         referral_status: r.referral_status,

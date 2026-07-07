@@ -10,6 +10,8 @@ const newReferral = readFileSync('src/pages/newReferral.js', 'utf8');
 const indexHtml = readFileSync('index.html', 'utf8');
 const workflowMigration = readFileSync('supabase/migrations/20260705_000015_referral_workflow_command_engine.sql', 'utf8');
 const slipHotfixMigration = readFileSync('supabase/migrations/20260707_000020_referral_slip_number_hotfix.sql', 'utf8');
+const rcBlockerHotfix = readFileSync('supabase/migrations/20260707_000022_rc_blocker_hotfix.sql', 'utf8');
+const dataService = readFileSync('src/services/dataService.js', 'utf8');
 
 test('core data refresh still reads secure views', () => {
   assert.match(main, /fetchCoreData/);
@@ -78,4 +80,35 @@ test('referral private state is cleared during auth lifecycle changes', () => {
   assert.match(auth, /window\.clearReferralPrivateState\?\.\(\{ clearCurrentDraft: true, resetPrompt: true \}\)/);
   assert.match(newReferral, /clearReferralStorageForUser/);
   assert.match(newReferral, /sessionStorage/);
+});
+test('RC blocker hotfix keeps referral slip generation database-owned and collision-safe', () => {
+  assert.match(dataService, /slip_no: _slipNo/);
+  assert.match(dataService, /safePayload/);
+  assert.match(rcBlockerHotfix, /IF jsonb_exists\(payload, 'slip_no'\)/);
+  assert.match(rcBlockerHotfix, /LOOP[\s\S]*candidate := 'OHGL-'/);
+  assert.match(rcBlockerHotfix, /EXCEPTION WHEN unique_violation/);
+  assert.match(rcBlockerHotfix, /public\.next_referral_slip_no\(\)/);
+});
+
+test('RC blocker hotfix provides secure facility lookup and dropdown empty state', () => {
+  assert.match(rcBlockerHotfix, /CREATE OR REPLACE FUNCTION list_referral_facilities_secure/);
+  assert.match(rcBlockerHotfix, /public\.has_permission\('facility:read'\)/);
+  assert.match(dataService, /sb\.rpc\('list_referral_facilities_secure'\)/);
+  assert.match(newReferral, /No active facilities available/);
+  assert.match(newReferral, /No referral destination facilities are available/);
+});
+
+test('RC blocker hotfix includes approved CHP users in secure directory', () => {
+  assert.match(rcBlockerHotfix, /CREATE OR REPLACE VIEW chp_directory_secure/);
+  assert.match(rcBlockerHotfix, /approved_user_chps/);
+  assert.match(rcBlockerHotfix, /u\.role = 'chp'::app_role/);
+  assert.match(rcBlockerHotfix, /NOT EXISTS \(SELECT 1 FROM chp_directory c WHERE c\.user_id = u\.id\)/);
+});
+
+test('RC blocker hotfix reports resolve facility names and export detail rows', () => {
+  assert.match(reports, /function facilityNameFor/);
+  assert.match(reports, /detailedReferralTable/);
+  assert.match(reports, /Detailed Referral Register/);
+  assert.match(reports, /querySelectorAll\('#report-content table'\)/);
+  assert.doesNotMatch(reports, /r\.referral_facility \|\| 'Unknown Facility'/);
 });
