@@ -105,13 +105,31 @@ export function sanitizeReferralPayload(originalPayload) {
   }, {});
 }
 
-export function createReferralRecord(originalPayload) {
-  const payload = sanitizeReferralPayload(originalPayload);
-  console.group('Referral Payload');
+export async function createReferralRecord(originalPayload) {
+  let payload = { ...(originalPayload || {}) };
+  console.log('STEP 6: Before sb.rpc');
+  payload = sanitizeReferralPayload(payload);
+  delete payload.slip_no;
+  delete payload.slipNo;
+  delete payload.referralNo;
+  delete payload.referral_number;
+  console.group('FINAL RPC PAYLOAD');
   console.log(payload);
+  console.log(JSON.stringify(payload, null, 2));
   console.log(Object.keys(payload));
   console.groupEnd();
-  return sb.rpc('create_referral_secure', { payload });
+  const result = await sb.rpc('create_referral_secure', { payload });
+  if (result.error) {
+    console.group('Referral RPC Error');
+    console.log('Code:', result.error.code);
+    console.log('Message:', result.error.message);
+    console.log('Details:', result.error.details);
+    console.log('Hint:', result.error.hint);
+    console.log('Full Error:', result.error);
+    console.groupEnd();
+  }
+  console.log('STEP 7: RPC returned');
+  return result;
 }
 
 

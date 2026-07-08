@@ -29,8 +29,8 @@ test('final referral payload contains no client referral number fields', () => {
 
 test('createReferralRecord sanitizes immediately before Supabase RPC', () => {
   assert.match(dataService, /function createReferralRecord\(originalPayload\)/);
-  assert.match(dataService, /const payload = sanitizeReferralPayload\(originalPayload\)/);
-  assert.match(dataService, /console\.group\('Referral Payload'\)/);
+  assert.match(dataService, /payload = sanitizeReferralPayload\(payload\)/);
+  assert.match(dataService, /console\.group\('FINAL RPC PAYLOAD'\)/);
   assert.match(dataService, /sb\.rpc\('create_referral_secure', \{ payload \}\)/);
   const rpcBlock = dataService.match(/function createReferralRecord[\s\S]*?sb\.rpc\('create_referral_secure'[\s\S]*?\n\}/)[0];
   assert.doesNotMatch(rpcBlock, /safePayload/);

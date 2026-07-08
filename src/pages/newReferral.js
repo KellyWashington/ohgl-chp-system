@@ -551,125 +551,137 @@ export function clearSlipForm() {
 }
 
 export async function submitReferral() {
-  if (!ensurePageAccess('new_referral', 'ref-alert')) return;
-  if (isSubmittingReferral) return;
-  
-  if (!checkRateLimit('submit_referral', 3, 30000)) {
-    alertBox('Too many referral submissions. Please wait a few seconds before trying again.');
-    return;
-  }
-
-  const f = fac();
-  if (!f) {
-    alertBox('Please select a facility first.');
-    return;
-  }
-
-  const raw = readCurrentForm();
-  const form = {
-    patient: sanitizeText(raw.patient, 160),
-    nationalId: sanitizeText(raw.nationalId, 40),
-    phone: sanitizeText(raw.phone, 40),
-    gender: sanitizeText(raw.gender, 20),
-    age: raw.age,
-    county: sanitizeText(raw.county, 80),
-    subCounty: sanitizeText(raw.subCounty, 80),
-    village: sanitizeText(raw.village, 120),
-    complaint: sanitizeText(raw.complaint, 1000),
-    reason: sanitizeText(raw.reason, 500),
-    notes: sanitizeText(raw.notes, 2000),
-    facilityId: raw.facilityId || f.id,
-    department: sanitizeText(raw.department, 120),
-    priority: sanitizeText(raw.priority || 'Routine', 20),
-    date: raw.date,
-  };
-
-  const errors = validateReferral(form, f);
-  if (errors.length) {
-    alertBox(`<strong>Please fix the following:</strong><br>${errors.map(e => `&bull; ${e}`).join('<br>')}`);
-    return;
-  }
-
-  setReferralSubmitting(true);
-
   try {
-    if (!f.referrals) f.referrals = [];
-    const selectedFacility = (DB.facilities || []).find(x => x.id === form.facilityId) || f;
-    const slip = {
-      id: null,
-      facility_id: form.facilityId,
-      date: form.date,
-      patient: form.patient,
-      national_id: form.nationalId,
-      phone: form.phone,
-      sex: form.gender,
-      age: form.age,
-      county: form.county,
-      subcounty: form.subCounty,
-      village: form.village,
-      complaint: form.complaint,
-      referral_reason: form.reason,
-      notes: form.notes,
-      referral_facility: selectedFacility.name,
-      referral_facility_id: form.facilityId,
-      department: form.department,
-      priority: form.priority,
-      workflow_status: 'Submitted',
-      status: 'Submitted',
-      created_by: currentProfile?.id,
-      created_by_name: currentProfile?.full_name || '',
-      timeline: [],
-      created: new Date().toISOString(),
-    };
-
-    const payload = {
-      facility_id: form.facilityId,
-      referral_date: form.date,
-      patient_name: form.patient,
-      national_id: form.nationalId,
-      phone: form.phone,
-      sex: form.gender,
-      age: parseInt(form.age, 10),
-      county: form.county,
-      subcounty: form.subCounty,
-      village: form.village,
-      presenting_concern: form.complaint,
-      referral_reason: form.reason,
-      clinical_notes: form.notes,
-      referral_facility_id: form.facilityId,
-      referral_facility_name: selectedFacility.name,
-      department: form.department,
-      priority: form.priority,
-      workflow_status: 'Submitted',
-    };
-
-    const { data, error } = await createReferralRecord(payload);
-    if (error) throw error;
-
-    integrations.syncToSHA(payload).catch(err => console.error('[SHA Sync Error]', err));
-    const generatedSlipNo = data.slip_no;
-    messaging.send('sms', payload.phone, `Oasis Health: Referral ${generatedSlipNo} has been successfully submitted to ${payload.referral_facility_name}.`).catch(err => console.error('[SMS Sync Error]', err));
-
-    slip.db_id = data.id;
-    slip.id = generatedSlipNo;
-    f.referrals.push(slip);
-    await audit('create', 'referrals', data.id, { slip_no: slip.id });
-    clearReferralDraft();
-    resetReferralForm({ preserveFacility: true });
-    const shown = showReferralSuccessModal({
-      slipNo: slip.id,
-      submittedAt: new Date(data.created_at || slip.created).toLocaleString(),
-      receivingFacility: payload.referral_facility_name,
-      priority: data.priority || form.priority || 'Routine',
-      status: data.referral_status || data.opd_status || 'Submitted',
-      submittedBy: currentProfile?.full_name || 'Current CHP',
-    });
-    if (!shown) {
-      alertBox(`Referral <strong>${h(slip.id)}</strong> submitted successfully.`, 'alert-s');
+    console.log('STEP 1: Submit clicked');
+    if (!ensurePageAccess('new_referral', 'ref-alert')) return;
+    if (isSubmittingReferral) return;
+    
+    if (!checkRateLimit('submit_referral', 3, 30000)) {
+      alertBox('Too many referral submissions. Please wait a few seconds before trying again.');
+      return;
     }
-    window.scrollTo(0, 0);
-  } catch (err) {
+
+    const f = fac();
+    if (!f) {
+      alertBox('Please select a facility first.');
+      return;
+    }
+
+    const raw = readCurrentForm();
+    console.log('STEP 2: Form read');
+    const form = {
+      patient: sanitizeText(raw.patient, 160),
+      nationalId: sanitizeText(raw.nationalId, 40),
+      phone: sanitizeText(raw.phone, 40),
+      gender: sanitizeText(raw.gender, 20),
+      age: raw.age,
+      county: sanitizeText(raw.county, 80),
+      subCounty: sanitizeText(raw.subCounty, 80),
+      village: sanitizeText(raw.village, 120),
+      complaint: sanitizeText(raw.complaint, 1000),
+      reason: sanitizeText(raw.reason, 500),
+      notes: sanitizeText(raw.notes, 2000),
+      facilityId: raw.facilityId || f.id,
+      department: sanitizeText(raw.department, 120),
+      priority: sanitizeText(raw.priority || 'Routine', 20),
+      date: raw.date,
+    };
+
+    const errors = validateReferral(form, f);
+    if (errors.length) {
+      alertBox(`<strong>Please fix the following:</strong><br>${errors.map(e => `&bull; ${e}`).join('<br>')}`);
+      return;
+    }
+    console.log('STEP 3: Validation passed');
+
+    setReferralSubmitting(true);
+
+    try {
+      if (!f.referrals) f.referrals = [];
+      const selectedFacility = (DB.facilities || []).find(x => x.id === form.facilityId) || f;
+      const slip = {
+        id: null,
+        facility_id: form.facilityId,
+        date: form.date,
+        patient: form.patient,
+        national_id: form.nationalId,
+        phone: form.phone,
+        sex: form.gender,
+        age: form.age,
+        county: form.county,
+        subcounty: form.subCounty,
+        village: form.village,
+        complaint: form.complaint,
+        referral_reason: form.reason,
+        notes: form.notes,
+        referral_facility: selectedFacility.name,
+        referral_facility_id: form.facilityId,
+        department: form.department,
+        priority: form.priority,
+        workflow_status: 'Submitted',
+        status: 'Submitted',
+        created_by: currentProfile?.id,
+        created_by_name: currentProfile?.full_name || '',
+        timeline: [],
+        created: new Date().toISOString(),
+      };
+
+      const payload = {
+        facility_id: form.facilityId,
+        referral_date: form.date,
+        patient_name: form.patient,
+        national_id: form.nationalId,
+        phone: form.phone,
+        sex: form.gender,
+        age: parseInt(form.age, 10),
+        county: form.county,
+        subcounty: form.subCounty,
+        village: form.village,
+        presenting_concern: form.complaint,
+        referral_reason: form.reason,
+        clinical_notes: form.notes,
+        referral_facility_id: form.facilityId,
+        referral_facility_name: selectedFacility.name,
+        department: form.department,
+        priority: form.priority,
+        workflow_status: 'Submitted',
+      };
+      console.log('STEP 4: Payload built');
+
+      console.log('STEP 5: Calling createReferralRecord');
+      const { data, error } = await createReferralRecord(payload);
+      if (error) throw error;
+
+      integrations.syncToSHA(payload).catch(err => console.error('[SHA Sync Error]', err));
+      const generatedSlipNo = data.slip_no;
+      messaging.send('sms', payload.phone, `Oasis Health: Referral ${generatedSlipNo} has been successfully submitted to ${payload.referral_facility_name}.`).catch(err => console.error('[SMS Sync Error]', err));
+
+      slip.db_id = data.id;
+      slip.id = generatedSlipNo;
+      f.referrals.push(slip);
+      await audit('create', 'referrals', data.id, { slip_no: slip.id });
+      clearReferralDraft();
+      resetReferralForm({ preserveFacility: true });
+      const shown = showReferralSuccessModal({
+        slipNo: slip.id,
+        submittedAt: new Date(data.created_at || slip.created).toLocaleString(),
+        receivingFacility: payload.referral_facility_name,
+        priority: data.priority || form.priority || 'Routine',
+        status: data.referral_status || data.opd_status || 'Submitted',
+        submittedBy: currentProfile?.full_name || 'Current CHP',
+      });
+      if (!shown) {
+        alertBox(`Referral <strong>${h(slip.id)}</strong> submitted successfully.`, 'alert-s');
+      }
+      window.scrollTo(0, 0);
+    } catch (err) {
+      console.error('Referral submit failed:', err);
+      resetSubmitButton();
+      alertBox(err.message || 'Referral could not be submitted. Please try again.');
+    }
+  } catch (e) {
+    console.error('Referral submit failed:', e);
     resetSubmitButton();
-    alertBox(err.message || 'Referral could not be submitted. Please try again.');
+    alertBox(e.message || 'Referral could not be submitted. Please try again.');
   }
 }
