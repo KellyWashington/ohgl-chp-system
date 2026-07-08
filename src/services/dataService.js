@@ -94,7 +94,7 @@ export function writeAuditLog({ actorId, action, tableName, recordId, facilityId
 }
 
 export function createReferralRecord(payload) {
-  const { slip_no: _slipNo, slipNo: _slipNoCamel, ...safePayload } = payload || {};
+  const { slip_no: _slipNo, slipNo: _slipNoCamel, referralNo: _referralNo, ...safePayload } = payload || {};
   return sb.rpc('create_referral_secure', { payload: safePayload });
 }
 
@@ -224,6 +224,7 @@ export function markAllNotificationsRead(userId, facilityId) {
   }
   return query;
 }
+
 
 
 

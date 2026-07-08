@@ -412,7 +412,7 @@ function resetReferralForm({ preserveFacility = true, focus = false, toast = '' 
   const alertEl = document.getElementById('ref-alert');
   if (alertEl) alertEl.innerHTML = '';
   const slipNo = document.getElementById('slip-no-display');
-  if (slipNo) slipNo.textContent = 'Assigned on submit';
+  if (slipNo) slipNo.textContent = 'Will be generated after submission';
   resetSubmitButton();
   suppressDraftSave = false;
   markReferralClean();
@@ -518,7 +518,7 @@ export function initSlip() {
 
   if (!f) return;
   document.getElementById('slip-hdr-r').innerHTML = f.location + ' - ' + f.name + '<br>' + (f.email || '');
-  document.getElementById('slip-no-display').textContent = 'Assigned on submit';
+  document.getElementById('slip-no-display').textContent = 'Will be generated after submission';
   if (!val('f-date')) document.getElementById('f-date').valueAsDate = new Date();
 
   clearAlert();

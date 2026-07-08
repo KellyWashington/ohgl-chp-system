@@ -50,6 +50,7 @@ test('referral creation shows success modal with follow-up actions', () => {
   assert.match(indexHtml, /id="referral-success-modal"/);
   assert.match(indexHtml, /View My Referrals/);
   assert.match(indexHtml, /Create Another Referral/);
+  assert.match(indexHtml, /Will be generated after submission/);
   assert.match(newReferral, /showReferralSuccessModal/);
   assert.match(newReferral, /slipNo: slip\.id/);
   assert.doesNotMatch(newReferral, /my-referrals-alert/);
@@ -87,6 +88,7 @@ test('referral private state is cleared during auth lifecycle changes', () => {
 });
 test('production referral hotfix blocks client slip numbers and keeps concurrent inserts unique', () => {
   assert.match(dataService, /slip_no: _slipNo/);
+  assert.match(dataService, /referralNo: _referralNo/);
   assert.match(dataService, /safePayload/);
   assert.match(productionReferralHotfix, /RETURNS referrals_secure/);
   assert.match(productionReferralHotfix, /IF jsonb_exists\(payload,\s*'slip_no'\)/);
@@ -168,3 +170,4 @@ test('reporting module v1 supports operational reports, filters, exports, and pa
   assert.match(reports, /currentProfile\?\.role === 'chp'/);
   assert.match(rbac, /report: \['super_admin', 'facility_manager', 'facility_officer', 'clinician', 'chp'\]/);
 });
+
