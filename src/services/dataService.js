@@ -93,9 +93,25 @@ export function writeAuditLog({ actorId, action, tableName, recordId, facilityId
   });
 }
 
-export function createReferralRecord(payload) {
-  const { slip_no: _slipNo, slipNo: _slipNoCamel, referralNo: _referralNo, ...safePayload } = payload || {};
-  return sb.rpc('create_referral_secure', { payload: safePayload });
+const REFERRAL_NUMBER_FIELDS = new Set(['slip_no', 'slipNo', 'referralNo', 'referral_number']);
+
+export function sanitizeReferralPayload(originalPayload) {
+  return Object.entries(originalPayload || {}).reduce((payload, [key, value]) => {
+    if (REFERRAL_NUMBER_FIELDS.has(key)) return payload;
+    if (value === undefined) return payload;
+    if (typeof value === 'string' && value.trim() === '') return payload;
+    payload[key] = value;
+    return payload;
+  }, {});
+}
+
+export function createReferralRecord(originalPayload) {
+  const payload = sanitizeReferralPayload(originalPayload);
+  console.group('Referral Payload');
+  console.log(payload);
+  console.log(Object.keys(payload));
+  console.groupEnd();
+  return sb.rpc('create_referral_secure', { payload });
 }
 
 

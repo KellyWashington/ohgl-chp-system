@@ -87,9 +87,10 @@ test('referral private state is cleared during auth lifecycle changes', () => {
   assert.match(newReferral, /sessionStorage/);
 });
 test('production referral hotfix blocks client slip numbers and keeps concurrent inserts unique', () => {
-  assert.match(dataService, /slip_no: _slipNo/);
-  assert.match(dataService, /referralNo: _referralNo/);
-  assert.match(dataService, /safePayload/);
+  assert.match(dataService, /sanitizeReferralPayload/);
+  assert.match(dataService, /REFERRAL_NUMBER_FIELDS/);
+  assert.match(dataService, /referral_number/);
+  assert.match(dataService, /sb\.rpc\('create_referral_secure', \{ payload \}\)/);
   assert.match(productionReferralHotfix, /RETURNS referrals_secure/);
   assert.match(productionReferralHotfix, /IF jsonb_exists\(payload,\s*'slip_no'\)/);
   assert.match(productionReferralHotfix, /Client supplied referral number is not allowed\./);
