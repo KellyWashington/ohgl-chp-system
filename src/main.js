@@ -99,7 +99,7 @@ export async function refreshDB() {
         complaint: r.presenting_concern,
         notes: r.clinical_notes,
         referral_reason: r.referral_reason,
-        referral_facility: r.referral_facility_name || facilityLookup.get(r.referral_facility_id)?.name || facilityLookup.get(r.facility_id)?.name || r.referral_facility || 'Unknown Facility',
+        referral_facility: facilityLookup.get(r.facility_id)?.name || r.referral_facility_name || r.referral_facility || 'Unknown Facility',
         referral_facility_id: r.referral_facility_id || r.facility_id,
         department: r.department,
         workflow_status: r.workflow_status || r.referral_status || r.opd_status || 'Submitted',

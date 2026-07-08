@@ -286,65 +286,63 @@
   <div id="chp-dir-content"></div>
 </div>
 
-<!--  MONTHLY REPORT  -->
+<!--  REPORTING & ANALYTICS  -->
 <div id="page-report" class="page">
-  <div class="card no-print" style="margin-bottom: 16px;">
-    <div class="ch"><span class="ct"><i class="ti ti-filter"></i> Report Configuration</span></div>
-    <div style="padding: 15px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
-      <div class="fg" style="margin: 0; min-width: 150px;">
-        <label class="fl" style="font-size: 11px;">Report Type</label>
-        <select class="fi" id="r-type" onchange="renderReport()" style="padding: 6px 10px; font-size: 12px;">
-          <option value="facility">Referrals by Facility</option>
-          <option value="county">Referrals by County</option>
-          <option value="outcome">Referral Outcomes</option>
-          <option value="completion">Completion Rates</option>
-          <option value="trends">Referral Trends</option>
+  <div class="card no-print" style="margin-bottom:16px;">
+    <div class="ch"><span class="ct"><i class="ti ti-chart-bar"></i> Reporting & Analytics</span></div>
+    <div style="padding:15px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end;">
+      <div class="fg" style="margin:0;">
+        <label class="fl" for="r-type" style="font-size:11px;">Report Type</label>
+        <select class="fi" id="r-type" onchange="renderReport()" aria-label="Report type" style="padding:6px 10px;font-size:12px;">
+          <option value="register">Referral Register</option>
+          <option value="chp">CHP Performance</option>
+          <option value="facility">Facility Performance</option>
+          <option value="department">Department Performance</option>
+          <option value="executive">Executive Dashboard</option>
+          <option value="timeline">Referral Timeline</option>
         </select>
       </div>
-      <div class="fg" style="margin: 0; min-width: 130px;">
-        <label class="fl" style="font-size: 11px;">Date Filter</label>
-        <select class="fi" id="r-filter-type" onchange="onReportFilterTypeChange()" style="padding: 6px 10px; font-size: 12px;">
-          <option value="daily">Daily (Today)</option>
-          <option value="weekly">Weekly (Last 7 Days)</option>
-          <option value="monthly" selected>Monthly (Selected Month)</option>
-          <option value="custom">Custom Date Range</option>
+      <div class="fg" style="margin:0;">
+        <label class="fl" for="r-filter-type" style="font-size:11px;">Date Range</label>
+        <select class="fi" id="r-filter-type" onchange="onReportFilterTypeChange()" aria-label="Date range" style="padding:6px 10px;font-size:12px;">
+          <option value="daily">Today</option>
+          <option value="weekly">Last 7 Days</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="custom">Custom</option>
         </select>
       </div>
-      <div id="r-month-select-container" class="fg" style="margin: 0; min-width: 120px;">
-        <label class="fl" style="font-size: 11px;">Month</label>
-        <select class="fi" id="r-month" onchange="renderReport()" style="padding: 6px 10px; font-size: 12px;">
-          <option value="1" selected>January</option><option value="2">February</option><option value="3">March</option>
-          <option value="4">April</option><option value="5">May</option><option value="6">June</option>
-          <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-          <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+      <div id="r-month-select-container" class="fg" style="margin:0;">
+        <label class="fl" for="r-month" style="font-size:11px;">Month</label>
+        <select class="fi" id="r-month" onchange="renderReport()" style="padding:6px 10px;font-size:12px;">
+          <option value="1" selected>January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option>
         </select>
       </div>
-      <div class="fg" style="margin: 0; min-width: 80px;">
-        <label class="fl" style="font-size: 11px;">Year</label>
-        <select class="fi" id="r-year" onchange="renderReport()" style="padding: 6px 10px; font-size: 12px;">
-          <option selected>2026</option><option>2027</option><option>2028</option>
-        </select>
+      <div class="fg" style="margin:0;">
+        <label class="fl" for="r-year" style="font-size:11px;">Year</label>
+        <select class="fi" id="r-year" onchange="renderReport()" style="padding:6px 10px;font-size:12px;"><option selected>2026</option><option>2027</option><option>2028</option></select>
       </div>
-      <div id="r-custom-dates" style="display: none; gap: 10px;">
-        <div class="fg" style="margin: 0; min-width: 130px;">
-          <label class="fl" style="font-size: 11px;">Start Date</label>
-          <input class="fi" type="date" id="r-start-date" onchange="renderReport()" style="padding: 5px 10px; font-size: 12px;">
-        </div>
-        <div class="fg" style="margin: 0; min-width: 130px;">
-          <label class="fl" style="font-size: 11px;">End Date</label>
-          <input class="fi" type="date" id="r-end-date" onchange="renderReport()" style="padding: 5px 10px; font-size: 12px;">
-        </div>
+      <div id="r-custom-dates" style="display:none;gap:10px;grid-column:span 2;">
+        <div class="fg" style="margin:0;"><label class="fl" for="r-start-date" style="font-size:11px;">Start</label><input class="fi" type="date" id="r-start-date" onchange="renderReport()" style="padding:5px 10px;font-size:12px;"></div>
+        <div class="fg" style="margin:0;"><label class="fl" for="r-end-date" style="font-size:11px;">End</label><input class="fi" type="date" id="r-end-date" onchange="renderReport()" style="padding:5px 10px;font-size:12px;"></div>
       </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-p btn-sm" onclick="exportReport('pdf')"><i class="ti ti-file-type-pdf"></i> PDF</button>
-        <button class="btn btn-s btn-sm" onclick="exportReport('excel')"><i class="ti ti-file-spreadsheet"></i> Excel</button>
-        <button class="btn btn-s btn-sm" onclick="exportReport('csv')"><i class="ti ti-file-text"></i> CSV</button>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-facility" style="font-size:11px;">Facility ID</label><input class="fi" id="r-facility" oninput="renderReport()" placeholder="Optional facility id" style="padding:6px 10px;font-size:12px;"></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-department" style="font-size:11px;">Department</label><input class="fi" id="r-department" oninput="renderReport()" placeholder="Department" style="padding:6px 10px;font-size:12px;"></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-chp" style="font-size:11px;">CHP</label><input class="fi" id="r-chp" oninput="renderReport()" placeholder="Name or code" style="padding:6px 10px;font-size:12px;"></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-status" style="font-size:11px;">Status</label><select class="fi" id="r-status" onchange="renderReport()" style="padding:6px 10px;font-size:12px;"><option value="">All</option><option>Submitted</option><option>Under Review</option><option>Received</option><option>In Consultation</option><option>Admitted</option><option>Completed</option><option>Closed</option><option>Cancelled</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-priority" style="font-size:11px;">Priority</label><select class="fi" id="r-priority" onchange="renderReport()" style="padding:6px 10px;font-size:12px;"><option value="">All</option><option>Routine</option><option>Urgent</option><option>Emergency</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-sha" style="font-size:11px;">SHA</label><select class="fi" id="r-sha" onchange="renderReport()" style="padding:6px 10px;font-size:12px;"><option value="">All</option><option value="yes">SHA Yes</option><option value="no">SHA No</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-emergency" style="font-size:11px;">Emergency</label><select class="fi" id="r-emergency" onchange="renderReport()" style="padding:6px 10px;font-size:12px;"><option value="">All</option><option value="yes">Emergency only</option><option value="no">Exclude emergency</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl" for="r-search" style="font-size:11px;">Search</label><input class="fi" id="r-search" oninput="renderReport()" placeholder="Search referrals" style="padding:6px 10px;font-size:12px;"></div>
+      <div style="display:flex;gap:8px;align-items:end;">
+        <button class="btn btn-p btn-sm" onclick="exportReport('pdf')" aria-label="Export PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
+        <button class="btn btn-s btn-sm" onclick="exportReport('excel')" aria-label="Export Excel"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+        <button class="btn btn-s btn-sm" onclick="exportReport('csv')" aria-label="Export CSV"><i class="ti ti-file-text"></i> CSV</button>
       </div>
     </div>
+    <div id="report-export-status" style="padding:0 15px 12px"></div>
   </div>
-  <div id="report-content"></div>
+  <div id="report-content" aria-live="polite"></div>
 </div>
-
 <!--  GROUP OVERVIEW  -->
 <div id="page-group" class="page">
   <div class="pg-title"><i class="ti ti-building-community"></i> Group Overview - All Facilities</div>

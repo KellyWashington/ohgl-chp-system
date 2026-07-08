@@ -10,7 +10,7 @@ export const PAGE_ACCESS = {
   my_referrals: ['super_admin', 'facility_manager', 'facility_officer', 'clinician', 'chp'],
   tracker: ['super_admin', 'facility_manager', 'facility_officer', 'clinician'],
   directory: ['super_admin', 'facility_manager'],
-  report: ['super_admin', 'facility_manager', 'facility_officer', 'clinician'],
+  report: ['super_admin', 'facility_manager', 'facility_officer', 'clinician', 'chp'],
   group: ['super_admin'],
   settings: ['super_admin', 'facility_manager'],
   audit: ['super_admin'],
