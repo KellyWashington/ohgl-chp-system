@@ -32,6 +32,8 @@ test('createReferralRecord sanitizes immediately before Supabase RPC', () => {
   assert.match(dataService, /payload = sanitizeReferralPayload\(payload\)/);
   assert.match(dataService, /console\.group\('FINAL RPC PAYLOAD'\)/);
   assert.match(dataService, /sb\.rpc\('create_referral_secure', \{ payload \}\)/);
+  assert.match(dataService, /'slip_no' in payload/);
+  assert.match(dataService, /BLOCKED BAD PAYLOAD/);
   const rpcBlock = dataService.match(/function createReferralRecord[\s\S]*?sb\.rpc\('create_referral_secure'[\s\S]*?\n\}/)[0];
   assert.doesNotMatch(rpcBlock, /safePayload/);
 });
