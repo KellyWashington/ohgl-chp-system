@@ -11,6 +11,7 @@ const indexHtml = readFileSync('index.html', 'utf8');
 const workflowMigration = readFileSync('supabase/migrations/20260705_000015_referral_workflow_command_engine.sql', 'utf8');
 const slipHotfixMigration = readFileSync('supabase/migrations/20260707_000020_referral_slip_number_hotfix.sql', 'utf8');
 const productionReferralHotfix = readFileSync('supabase/migrations/20260707_000023_production_referral_hotfix.sql', 'utf8');
+const referralFacilitiesRpc = readFileSync('supabase/migrations/20260707_000024_referral_facilities_rpc.sql', 'utf8');
 const dataService = readFileSync('src/services/dataService.js', 'utf8');
 
 test('core data refresh still reads secure views', () => {
@@ -100,4 +101,19 @@ test('RC blocker hotfix reports resolve facility names and export detail rows', 
   assert.match(reports, /Detailed Referral Register/);
   assert.match(reports, /querySelectorAll\('#report-content table'\)/);
   assert.doesNotMatch(reports, /r\.referral_facility \|\| 'Unknown Facility'/);
+});
+
+test('referral facility dropdown loads from secure RPC and handles empty or denied access', () => {
+  assert.match(dataService, /sb\.rpc\('list_referral_facilities_secure'\)/);
+  assert.match(referralFacilitiesRpc, /CREATE OR REPLACE FUNCTION public\.list_referral_facilities_secure\(\)/);
+  assert.match(referralFacilitiesRpc, /RETURNS TABLE[\s\S]*id uuid[\s\S]*name text[\s\S]*location text[\s\S]*subcounty text[\s\S]*level text[\s\S]*email text[\s\S]*phone text[\s\S]*year integer[\s\S]*active boolean/);
+  assert.match(referralFacilitiesRpc, /f\.financial_year AS year/);
+  assert.match(referralFacilitiesRpc, /public\.has_permission\('facility:read'\)/);
+  assert.match(referralFacilitiesRpc, /public\.has_permission\('referral:create'\)/);
+  assert.match(referralFacilitiesRpc, /GRANT EXECUTE ON FUNCTION public\.list_referral_facilities_secure\(\) TO authenticated/);
+  assert.match(dataService, /lastFacilityLoadError = secure\.error/);
+  assert.match(dataService, /return \{ data: \[\], error: null \}/);
+  assert.match(newReferral, /No referral facilities available\./);
+  assert.match(newReferral, /Facility lookup failed; refresh or retry/);
+  assert.match(newReferral, /facSel\.disabled = !activeFacilities\.length/);
 });

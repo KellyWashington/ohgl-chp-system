@@ -1,6 +1,6 @@
 import { DB, fac, currentProfile, currentUser } from '../services/state.js';
 import { ensurePageAccess } from '../services/rbac.js';
-import { createReferralRecord } from '../services/dataService.js';
+import { createReferralRecord, lastFacilityLoadError } from '../services/dataService.js';
 import { audit } from '../services/authService.js';
 import { h, sanitizeText } from '../utils/sanitize.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
@@ -494,29 +494,34 @@ export function initSlip() {
   registerReferralGuard();
   if (!ensurePageAccess('new_referral', 'ref-alert')) return;
   const f = fac();
+  const facSel = document.getElementById('f-dest-facility');
+  const activeFacilities = (DB.facilities || []).filter(x => x?.id && x.active !== false);
+
+  if (facSel) {
+    const selected = activeFacilities.some(x => x.id === facSel.value)
+      ? facSel.value
+      : (activeFacilities.find(x => x.id === f?.id)?.id || activeFacilities[0]?.id || '');
+    facSel.innerHTML = activeFacilities.length
+      ? activeFacilities
+        .map(x => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${x.location} - ${x.name}</option>`)
+        .join('')
+      : '<option value="">No referral facilities available.</option>';
+    facSel.disabled = !activeFacilities.length;
+  }
+
+  if (!activeFacilities.length) {
+    alertBox(lastFacilityLoadError
+      ? 'No referral facilities available. Facility lookup failed; refresh or retry after your access is verified.'
+      : 'No referral facilities available.', 'alert-e');
+    return;
+  }
+
   if (!f) return;
   document.getElementById('slip-hdr-r').innerHTML = f.location + ' - ' + f.name + '<br>' + (f.email || '');
   document.getElementById('slip-no-display').textContent = 'Assigned on submit';
   if (!val('f-date')) document.getElementById('f-date').valueAsDate = new Date();
 
-  const facSel = document.getElementById('f-dest-facility');
-  if (facSel) {
-    const activeFacilities = (DB.facilities || []).filter(x => x?.id && x.active !== false);
-    const selected = activeFacilities.some(x => x.id === facSel.value)
-      ? facSel.value
-      : (activeFacilities.find(x => x.id === f.id)?.id || activeFacilities[0]?.id || '');
-    facSel.innerHTML = activeFacilities.length
-      ? activeFacilities
-        .map(x => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${x.location} - ${x.name}</option>`)
-        .join('')
-      : '<option value="">No active facilities available</option>';
-    facSel.disabled = !activeFacilities.length;
-    if (!activeFacilities.length) {
-      alertBox('No referral destination facilities are available. Ask an administrator to verify active facilities and facility access.', 'alert-e');
-    } else {
-      clearAlert();
-    }
-  }
+  clearAlert();
   markReferralClean();
   attachDraftListeners();
   purgeExpiredAndForeignDrafts();

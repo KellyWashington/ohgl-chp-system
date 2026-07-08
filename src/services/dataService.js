@@ -1,5 +1,7 @@
 import { sb } from './supabaseClient.js';
 
+export let lastFacilityLoadError = null;
+
 export async function fetchCoreData() {
   const facilities = await fetchReferralFacilities();
   const [chps, refs, coverageAreas] = await Promise.all([
@@ -11,12 +13,22 @@ export async function fetchCoreData() {
 }
 
 export async function fetchReferralFacilities() {
+  lastFacilityLoadError = null;
   const secure = await sb.rpc('list_referral_facilities_secure');
   if (!secure.error) return secure;
+
   const missingRpc = /function .*list_referral_facilities_secure|could not find|schema cache/i.test(secure.error.message || '');
-  if (!missingRpc) return secure;
+  if (!missingRpc) {
+    lastFacilityLoadError = secure.error;
+    return { data: [], error: null };
+  }
+
   const fallback = await sb.from('facilities').select('*').order('location');
-  return { ...fallback, error: fallback.error ? fallback.error : { message: 'Secure facility lookup RPC is not deployed; using RLS-limited facility fallback.' } };
+  if (fallback.error) {
+    lastFacilityLoadError = fallback.error;
+    return { data: [], error: null };
+  }
+  return fallback;
 }
 
 export function fetchUserProfile(userId) {
