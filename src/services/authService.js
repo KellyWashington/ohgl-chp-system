@@ -1,10 +1,10 @@
 import { sb, requireSupabase } from './supabaseClient.js';
 import { fetchUserProfile, writeAuditLog } from './dataService.js';
+import { checkRegistrationRateLimit, logRegistrationAttempt } from './registrationRateLimitService.js';
 import { h, sanitizeText } from '../utils/sanitize.js';
 import { hasPerm, getAllowedPages, getDefaultPage, getRoleLabel, renderAccessDenied } from './rbac.js';
 import { currentUser, currentProfile, setCurrentUser, setCurrentProfile, DB, setDB } from './state.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
-
 
 // We import UI orchestrators from main.js (circular imports are resolved post-load in ESM)
 import { showAuth, refreshDB, authAlert, showPage } from '../main.js';
@@ -27,6 +27,9 @@ function authErrorMessage(err, fallback) {
   }
   if (/password/i.test(message) && /six|6|weak|short/i.test(message)) {
     return 'Use a stronger password with at least 6 characters.';
+  }
+  if (/rate.*limit|too.*many/i.test(message)) {
+    return 'Too many registration attempts. Please try again in 1 hour.';
   }
   return message || fallback;
 }
@@ -105,6 +108,7 @@ function showLifecycleAccess(status, profile) {
     </div>
   </div>`;
 }
+
 export function applyPermissionsUI() {
   if (!currentProfile) return;
   const allowed = new Set(getAllowedPages(currentProfile));
@@ -219,6 +223,14 @@ export async function register(e) {
       return;
     }
 
+    // Check server-side rate limit before attempting signup
+    const rateLimitCheck = await checkRegistrationRateLimit(email);
+    if (rateLimitCheck.data?.is_rate_limited) {
+      authAlert(rateLimitCheck.data.reason || 'Too many registration attempts. Please try again later.');
+      await logRegistrationAttempt(email, 'rate_limited', rateLimitCheck.data.reason);
+      return;
+    }
+
     const signUpPayload = {
       email,
       password,
@@ -246,13 +258,22 @@ export async function register(e) {
 
     setAuthMode('login');
     authAlert('Registration submitted. Your account is awaiting Super Admin approval before system access is enabled.', 'alert-s');
+    
+    // Log successful registration attempt
+    await logRegistrationAttempt(email, 'success');
   } catch (err) {
     console.warn('Registration failed', { code: err?.code, status: err?.status, name: err?.name });
-    authAlert(authErrorMessage(err, 'Registration failed. Please check your details and try again.'));
+    const errorMsg = authErrorMessage(err, 'Registration failed. Please check your details and try again.');
+    authAlert(errorMsg);
+    
+    // Log failed registration attempt
+    const email = String(document.getElementById('auth-email')?.value ?? '').trim().toLowerCase();
+    await logRegistrationAttempt(email, 'failed', err?.message);
   } finally {
     setSubmitLoading(false);
   }
 }
+
 export async function login(e) {
   if (authMode === 'register') return register(e);
   e.preventDefault();
@@ -335,7 +356,3 @@ export async function logout() {
   setSubmitLoading(false);
   showAuth(false);
 }
-
-
-
-
