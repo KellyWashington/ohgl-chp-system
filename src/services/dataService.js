@@ -118,9 +118,9 @@ export async function createReferralRecord(originalPayload) {
   console.log(JSON.stringify(payload, null, 2));
   console.log(Object.keys(payload));
   console.groupEnd();
+  console.warn('RPC PAYLOAD', payload);
   if ('slip_no' in payload) {
-    console.error('BLOCKED BAD PAYLOAD', payload);
-    throw new Error('Frontend bug: slip_no must not be sent to create_referral_secure.');
+    throw new Error('BUG: slip_no still exists before RPC');
   }
   const result = await sb.rpc('create_referral_secure', { payload });
   if (result.error) {

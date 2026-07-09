@@ -25,5 +25,5 @@ export function setSelectedPriority(val) {
 }
 
 export function fac() {
-  return DB.facilities.find(f => f.id === DB.activeFacId) || DB.facilities[0] || null;
+  return DB.facilities.find(f => f.id === DB.activeFacId) || null;
 }

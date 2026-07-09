@@ -127,7 +127,7 @@ function readCurrentForm() {
     complaint: val('f-complaint'),
     reason: val('f-reason'),
     notes: val('f-notes'),
-    facilityId: val('f-dest-facility') || fac()?.id || '',
+    facilityId: val('f-dest-facility') || fac()?.id || DB.facilities?.[0]?.id || '',
     department: val('f-department'),
     priority: val('f-priority') || 'Routine',
     date: val('f-date'),
@@ -476,8 +476,8 @@ function validateReferral(form, f) {
   required.forEach(([key, label]) => {
     if (!form[key]) errors.push(`${label} is required.`);
   });
-  if (form.nationalId && !/^\d{6,12}$/.test(form.nationalId)) errors.push('National ID must be 6 to 12 digits.');
-  if (form.phone && !/^(?:\+?254|0)?[17]\d{8}$/.test(form.phone.replace(/\s+/g, ''))) errors.push('Phone must be a valid Kenyan mobile number.');
+  if (form.nationalId && !/^(?:\d{7}|\d{8}|\d{10})$/.test(form.nationalId)) errors.push('National ID must be 7, 8, or 10 digits.');
+  if (form.phone && !/^0[17]\d{8}$/.test(form.phone.replace(/\s+/g, ''))) errors.push('Phone must be exactly 10 digits, starting with 07 or 01.');
   const age = Number(form.age);
   if (form.age && (!Number.isInteger(age) || age < 0 || age > 120)) errors.push('Age must be a whole number between 0 and 120.');
   if (form.date && Number.isNaN(Date.parse(form.date))) errors.push('Date submitted is invalid.');
@@ -494,6 +494,7 @@ export function initSlip() {
   registerReferralGuard();
   if (!ensurePageAccess('new_referral', 'ref-alert')) return;
   const f = fac();
+  let selectedFacility = f;
   const facSel = document.getElementById('f-dest-facility');
   const activeFacilities = (DB.facilities || []).filter(x => x?.id && x.active !== false);
 
@@ -501,6 +502,7 @@ export function initSlip() {
     const selected = activeFacilities.some(x => x.id === facSel.value)
       ? facSel.value
       : (activeFacilities.find(x => x.id === f?.id)?.id || activeFacilities[0]?.id || '');
+    selectedFacility = activeFacilities.find(x => x.id === selected) || null;
     facSel.innerHTML = activeFacilities.length
       ? activeFacilities
         .map(x => `<option value="${x.id}" ${x.id === selected ? 'selected' : ''}>${x.location} - ${x.name}</option>`)
@@ -516,8 +518,8 @@ export function initSlip() {
     return;
   }
 
-  if (!f) return;
-  document.getElementById('slip-hdr-r').innerHTML = f.location + ' - ' + f.name + '<br>' + (f.email || '');
+  if (!selectedFacility) return;
+  document.getElementById('slip-hdr-r').innerHTML = selectedFacility.location + ' - ' + selectedFacility.name + '<br>' + (selectedFacility.email || '');
   document.getElementById('slip-no-display').textContent = 'Will be generated after submission';
   if (!val('f-date')) document.getElementById('f-date').valueAsDate = new Date();
 
@@ -561,13 +563,15 @@ export async function submitReferral() {
       return;
     }
 
-    const f = fac();
+    const raw = readCurrentForm();
+    const selectedFormFacilityId = raw.facilityId || fac()?.id || DB.facilities?.[0]?.id || '';
+    const f = (DB.facilities || []).find(x => x.id === selectedFormFacilityId) || fac();
     if (!f) {
-      alertBox('Please select a facility first.');
+      alertBox('Please select a referral facility first.');
       return;
     }
 
-    const raw = readCurrentForm();
+    raw.facilityId = selectedFormFacilityId;
     console.log('STEP 2: Form read');
     const form = {
       patient: sanitizeText(raw.patient, 160),

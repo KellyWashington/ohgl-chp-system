@@ -122,7 +122,13 @@ export async function refreshDB() {
       }));
   });
   
-  const activeFacId = sessionStorage.getItem('ohgl_active_facility') || newFacilities[0]?.id || null;
+  const storedFacId = sessionStorage.getItem('ohgl_active_facility');
+  const profileFacilityId = currentProfile?.facility_id || null;
+  const storedIsValid = storedFacId && newFacilities.some(f => f.id === storedFacId);
+  const profileFacilityIsValid = profileFacilityId && newFacilities.some(f => f.id === profileFacilityId);
+  const activeFacId = storedIsValid
+    ? storedFacId
+    : (profileFacilityIsValid ? profileFacilityId : (currentProfile?.role === 'super_admin' ? null : newFacilities[0]?.id || null));
   setDB({ facilities: newFacilities, activeFacId });
   updateHeader();
   refreshNotifications().catch(console.error);
@@ -131,11 +137,13 @@ export async function refreshDB() {
 
 function buildFacSel() {
   const sel = document.getElementById('fac-sel');
-  if (sel) {
-    sel.innerHTML = DB.facilities
-      .map(f => `<option value="${f.id}" ${f.id === DB.activeFacId ? 'selected' : ''}>${f.location} - ${f.name}</option>`)
-      .join('');
-  }
+  if (!sel) return;
+  const allOption = currentProfile?.role === 'super_admin'
+    ? `<option value="" ${!DB.activeFacId ? 'selected' : ''}>All facilities</option>`
+    : '';
+  sel.innerHTML = allOption + DB.facilities
+    .map(f => `<option value="${f.id}" ${f.id === DB.activeFacId ? 'selected' : ''}>${f.location} - ${f.name}</option>`)
+    .join('');
 }
 
 export async function switchFac(id) {
@@ -147,7 +155,8 @@ export async function switchFac(id) {
   }
   const newDB = { ...DB, activeFacId: id };
   setDB(newDB);
-  sessionStorage.setItem('ohgl_active_facility', id);
+  if (id) sessionStorage.setItem('ohgl_active_facility', id);
+  else sessionStorage.removeItem('ohgl_active_facility');
   updateHeader();
   const active = document.querySelector('.nt.active');
   const pid = document.querySelector('.page.active')?.id.replace('page-', '');
@@ -156,10 +165,10 @@ export async function switchFac(id) {
 
 export function updateHeader() {
   const f = fac();
-  if (!f) return;
-  document.getElementById('hdr-fname').textContent = f.location + ' - ' + f.name;
-  document.getElementById('hdr-contact').textContent = (f.email || '') + '  |  ' + (f.phone || '');
-  document.getElementById('hdr-doccode').textContent = 'OHGL-CHP-DASH-' + (f.year || 2026);
+  const label = f ? `${f.location} - ${f.name}` : (DB.facilities.length ? 'All facilities' : '-');
+  document.getElementById('hdr-fname').textContent = label;
+  document.getElementById('hdr-contact').textContent = f ? `${f.email || ''}  |  ${f.phone || ''}` : '';
+  document.getElementById('hdr-doccode').textContent = 'OHGL-CHP-DASH-' + (f?.year || 2026);
   buildFacSel();
 }
 
@@ -304,6 +313,4 @@ Object.assign(window, {
   markNotificationAsRead,
   markAllNotificationsAsRead,
 });
-
-
 

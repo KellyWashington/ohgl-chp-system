@@ -193,10 +193,10 @@
     <div class="form-section-title">Patient Information</div>
     <div class="slip-fields">
       <div class="slip-field full"><label>Full Name</label><input id="f-patient" placeholder="Patient full name"></div>
-      <div class="slip-field"><label>National ID Number</label><input id="f-national-id" inputmode="numeric" placeholder="National ID"></div>
-      <div class="slip-field"><label>Phone</label><input id="f-phone" inputmode="tel" placeholder="07... or +254..."></div>
+      <div class="slip-field"><label>National ID Number</label><input id="f-national-id" inputmode="numeric" maxlength="10" pattern="[0-9]*" placeholder="National ID"></div>
+      <div class="slip-field"><label>Phone</label><input id="f-phone" inputmode="tel" maxlength="10" pattern="[0-9]{10}" placeholder="07..."></div>
       <div class="slip-field"><label>Gender</label><select id="f-sex"><option value="">Select...</option><option value="M">Male</option><option value="F">Female</option><option value="Other">Other</option></select></div>
-      <div class="slip-field"><label>Age</label><input id="f-age" type="number" min="0" max="120" placeholder="Years"></div>
+      <div class="slip-field"><label>Age</label><input id="f-age" type="number" min="0" max="120" step="1" placeholder="Years"></div>
       <div class="slip-field"><label>County</label><input id="f-county" placeholder="County"></div>
       <div class="slip-field"><label>Sub County</label><input id="f-subcounty" placeholder="Sub county"></div>
       <div class="slip-field"><label>Village</label><input id="f-village" placeholder="Village"></div>
@@ -543,18 +543,4 @@
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

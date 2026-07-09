@@ -1,4 +1,4 @@
-import { fac, editingCHPIdx, setEditingCHPIdx } from '../services/state.js';
+import { DB, fac, editingCHPIdx, setEditingCHPIdx } from '../services/state.js';
 import { ensurePageAccess } from '../services/rbac.js';
 import { saveChpRecord, saveCoverageAreaRecord, deleteChpRecord } from '../services/dataService.js';
 import { audit } from '../services/authService.js';
@@ -103,29 +103,34 @@ function renderCoverageTable(f) {
 export function renderDir() {
   if (!ensurePageAccess('directory', 'chp-dir-content')) return;
   const f = fac();
-  document.getElementById('dir-fac-name').textContent = f ? f.location + ' - ' + f.name : '-';
-  if (f) {
-    setPrintHeader(
-      'dir-print-head',
-      'CHP DIRECTORY',
-      'Registered Community Health Promoters - ' + f.location + ' catchment',
-      docCode('DIR')
-    );
-  }
+  const facilities = f ? [f] : (DB.facilities || []);
+  const facilityLabel = f ? `${f.location} - ${f.name}` : (facilities.length ? 'All Facilities' : '-');
+  document.getElementById('dir-fac-name').textContent = facilityLabel;
+  setPrintHeader(
+    'dir-print-head',
+    'CHP DIRECTORY',
+    f ? 'Registered Community Health Promoters - ' + f.location + ' catchment' : 'Registered Community Health Promoters - All facilities',
+    docCode('DIR')
+  );
   const container = document.getElementById('chp-dir-content');
-  if (!f || !(f.chps || []).length) {
+  const chps = facilities.flatMap(facility => (facility.chps || []).map((chp, index) => ({ chp, index, facility })));
+  if (!chps.length) {
     container.innerHTML = `<div class="empty" style="background:var(--W);border:1px solid var(--BD);border-radius:10px"><i class="ti ti-users"></i><p>No CHPs registered yet.<br>Click <strong>Add CHP</strong> to register the first one.</p></div>`;
     bindDirectoryEvents(container);
     return;
   }
-  const cards = (f.chps || [])
-    .map((c, i) => {
-      const refs = (f.referrals || []).filter(r => r.chp_code === c.code);
+  const cards = chps
+    .map(({ chp: c, index: i, facility }) => {
+      const refs = (facility.referrals || []).filter(r => r.chp_code === c.code);
       const att = refs.filter(r => r.opd_status === 'Attended').length;
       const emg = refs.filter(r => r.priority === 'Emergency').length;
+      const facilityName = `${facility.location} - ${facility.name}`;
+      const actions = f ? `<button type="button" class="btn btn-s btn-sm" data-dir-action="edit" data-chp-idx="${i}" data-chp-code="${h(c.code)}"><i class="ti ti-edit"></i> Edit</button>
+        <button type="button" class="btn btn-d btn-sm" data-dir-action="delete" data-chp-idx="${i}" data-chp-code="${h(c.code)}"><i class="ti ti-trash"></i></button>` : `<span class="muted-mini">Select a facility to edit</span>`;
       return `<div class="dir-card">
       <div class="dir-card-hdr">
         <span class="dir-code">${h(c.code)}</span>
+        ${!f ? `<span class="muted-mini" style="margin-left:auto">${h(facilityName)}</span>` : ''}
       </div>
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
         <div class="dir-photo"><i class="ti ti-user"></i></div>
@@ -148,15 +153,14 @@ export function renderDir() {
       <div class="dir-notes-lbl">Notes:</div>
       <div class="dir-notes-line">${h(c.notes || '')}</div>
       <div style="display:flex;gap:6px;margin-top:10px" class="no-print">
-        <button type="button" class="btn btn-s btn-sm" data-dir-action="edit" data-chp-idx="${i}" data-chp-code="${h(c.code)}"><i class="ti ti-edit"></i> Edit</button>
-        <button type="button" class="btn btn-d btn-sm" data-dir-action="delete" data-chp-idx="${i}" data-chp-code="${h(c.code)}"><i class="ti ti-trash"></i></button>
+        ${actions}
         <span class="bdg ${isActiveChp(c) ? 'bdg-t' : 'bdg-grey'}" style="margin-left:auto">${isActiveChp(c) ? 'Active' : 'Inactive'}</span>
       </div>
     </div>`;
     })
     .join('');
 
-  container.innerHTML = `<div class="dir-grid">${cards}</div>${renderCoverageTable(f)}`;
+  container.innerHTML = `<div class="dir-grid">${cards}</div>${f ? renderCoverageTable(f) : ''}`;
   bindDirectoryEvents(container);
 }
 
